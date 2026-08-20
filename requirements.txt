@@ -1,0 +1,6 @@
+numpy>=1.26
+pandas>=2.0
+
+# Optional extras (not required for generation):
+# faker>=18.0
+# scipy>=1.11

@@ -1,0 +1,33 @@
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Machine Learning Models
+*.pkl
+*.joblib
+*.h5
+
+# Generated Data & Logs (Keep the scripts that generate them, not the output)
+output/
+output_smoke/
+analytics/*.csv
+analytics_smoke/*.csv
+*.log
+etl_*_log.txt
+full_run_log*.txt
+smoke_log*.txt
+
+# OS files
+.DS_Store
+Thumbs.db
