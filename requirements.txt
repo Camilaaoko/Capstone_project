@@ -1,5 +1,8 @@
 numpy>=1.26
 pandas>=2.0
+plotly>=5.20.0
+dash>=2.16.0
+dash-bootstrap-components>=1.6.0
 
 # Optional extras (not required for generation):
 # faker>=18.0
