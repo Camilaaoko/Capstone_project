@@ -1,56 +1,872 @@
-/* Custom Styling for KEMSA Healthcare Supply Chain Intelligence Dashboard */
+/* ==========================================================================
+   KEMSA Healthcare Supply Chain Intelligence Platform - Design System
+   Modern Typography: Plus Jakarta Sans, Inter, JetBrains Mono, Safira March
+   Color System: Executive Navy, Electric Cyan, Clinical Emerald, Semantic Status
+   ========================================================================== */
 
+/* 1. Google Web Font Imports */
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700;800&family=Montserrat:wght@800;900&family=Bodoni+Moda:ital,opsz,wght@0,6..96,600;0,6..96,700;0,6..96,800;1,6..96,600&family=Cinzel:wght@600;700;800&family=DM+Serif+Display:ital@0;1&family=Playfair+Display:ital,wght@0,600;0,700;0,800;1,600&display=swap');
+
+:root {
+    /* Font Family Tokens */
+    --font-primary: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    --font-mono: 'JetBrains Mono', 'SFMono-Regular', Menlo, Monaco, Consolas, monospace;
+    --font-safira-march: 'Safira March', 'SafiraMarch', 'Safira-March', 'Playfair Display', 'Cinzel', 'DM Serif Display', 'Bodoni Moda', 'Didot', serif;
+    --font-adobe-jenson: 'Adobe Jenson Pro', 'Adobe Jenson', 'Jenson Pro', 'EB Garamond', Garamond, Georgia, serif;
+
+    /* Executive Navy Brand Foundation */
+    --kemsa-navy-dark: #0F172A;
+    --kemsa-navy: #1E293B;
+    --kemsa-navy-light: #334155;
+    --kemsa-navy-subtle: #F1F5F9;
+
+    /* Brand Accents */
+    --kemsa-cyan: #0EA5E9;
+    --kemsa-cyan-dark: #0284C7;
+    --kemsa-cyan-subtle: #E0F2FE;
+
+    --kemsa-emerald: #10B981;
+    --kemsa-emerald-dark: #059669;
+    --kemsa-emerald-subtle: #ECFDF5;
+
+    /* Semantic Status Indicators */
+    --kemsa-green: #10B981;
+    --kemsa-green-subtle: #ECFDF5;
+
+    --kemsa-gold: #F59E0B;
+    --kemsa-gold-dark: #D97706;
+    --kemsa-gold-subtle: #FFFBEB;
+
+    --kemsa-orange: #F97316;
+    --kemsa-orange-glow: #FF5A1F;
+    --kemsa-orange-subtle: #FFF7ED;
+
+    --kemsa-danger: #EF4444;
+    --kemsa-danger-dark: #DC2626;
+    --kemsa-danger-subtle: #FEF2F2;
+
+    --kemsa-purple: #6366F1;
+    --kemsa-purple-dark: #4F46E5;
+    --kemsa-purple-subtle: #EEF2FF;
+
+    /* Canvas / Surface Layers */
+    --bg-canvas: #F8FAFC;
+    --surface-card: #FFFFFF;
+    --text-primary: #0F172A;
+    --text-secondary: #475569;
+    --text-muted: #64748B;
+    --border-card: #E2E8F0;
+    --border-card-hover: #CBD5E1;
+
+    /* Shadows & Elevations */
+    --shadow-card: 0 4px 20px -2px rgba(0, 0, 0, 0.05), 0 2px 6px -1px rgba(0, 0, 0, 0.02);
+    --shadow-card-hover: 0 12px 30px -4px rgba(15, 23, 42, 0.08), 0 4px 10px -2px rgba(15, 23, 42, 0.04);
+    --shadow-glow-emerald: 0 0 25px rgba(16, 185, 129, 0.25);
+    --shadow-glow-cyan: 0 0 25px rgba(14, 165, 233, 0.25);
+}
+
+/* Base Body Typography & Canvas */
 body {
-    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, 'Helvetica Neue', Arial, sans-serif;
-    color: #2c3e50;
+    font-family: var(--font-primary);
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    overflow-x: hidden;
 }
 
-/* Card hover animations & shadows */
-.card {
-    transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-    border-radius: 8px !important;
+/* Typography Utilities */
+.font-mono {
+    font-family: var(--font-mono) !important;
+    font-feature-settings: 'tnum' on, 'zero' on;
 }
 
-.card:hover {
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08) !important;
+.font-safira-march {
+    font-family: var(--font-safira-march) !important;
+    letter-spacing: 0.4px;
 }
 
-/* Tab styling */
+.font-adobe-jenson {
+    font-family: var(--font-adobe-jenson) !important;
+    letter-spacing: 0.3px;
+}
+
+.font-plus-jakarta,
+.font-hero-title {
+    font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    font-weight: 800 !important;
+    letter-spacing: -0.025em !important;
+}
+
+/* Authentic KEMSA Brand Wordmark (Matches official website typography) */
+.kemsa-brand-wordmark {
+    font-family: 'Montserrat', 'Plus Jakarta Sans', 'Arial Black', -apple-system, sans-serif !important;
+    font-weight: 900 !important;
+    letter-spacing: 2.2px !important;
+    text-transform: uppercase !important;
+    line-height: 1 !important;
+}
+
+.kemsa-brand-blue {
+    color: #003399 !important;
+}
+
+.kemsa-brand-white {
+    color: #FFFFFF !important;
+}
+
+.kemsa-pill {
+    display: inline-block;
+    width: 6px;
+    height: 14px;
+    border-radius: 6px;
+    transform: rotate(32deg);
+    flex-shrink: 0;
+}
+
+.kemsa-pill-green {
+    background-color: #00A859 !important;
+}
+
+.kemsa-pill-orange {
+    background-color: #FF7A00 !important;
+}
+
+.kemsa-pill-blue {
+    background-color: #003893 !important;
+}
+
+.kemsa-logo-divider {
+    height: 1.5px;
+    background-color: rgba(255, 255, 255, 0.25);
+    flex-grow: 1;
+}
+
+.kemsa-logo-divider-dark {
+    height: 1.5px;
+    background-color: #CBD5E1;
+    flex-grow: 1;
+}
+
+/* 2. Hero Banner Section with Radial Mesh Gradient & Ambient Glows */
+.kemsa-hero-banner {
+    position: relative;
+    background: radial-gradient(circle at 80% 25%, rgba(14, 165, 233, 0.22) 0%, transparent 45%),
+                radial-gradient(circle at 20% 75%, rgba(16, 185, 129, 0.20) 0%, transparent 40%),
+                radial-gradient(circle at 50% 10%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
+                linear-gradient(145deg, #020617 0%, #0F172A 50%, #1E293B 100%);
+    border-bottom: 4px solid var(--kemsa-emerald);
+    overflow: hidden;
+}
+
+.kemsa-hero-banner::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.025' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+}
+
+/* Floating Glass Stat Chips with Premium Glassmorphism */
+.glass-stat-chip {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.03) 100%) !important;
+    backdrop-filter: blur(16px) saturate(180%) !important;
+    -webkit-backdrop-filter: blur(16px) saturate(180%) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.28), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15) !important;
+    padding: 1.5rem 1.6rem !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+    position: relative;
+    overflow: hidden;
+}
+
+.glass-stat-chip::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, rgba(14, 165, 233, 0.8), rgba(16, 185, 129, 0.8), transparent);
+    opacity: 0.6;
+    transition: opacity 0.3s ease;
+}
+
+.glass-stat-chip:hover {
+    transform: translateY(-6px) !important;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0.06) 100%) !important;
+    border-color: rgba(255, 255, 255, 0.35) !important;
+    box-shadow: 0 16px 40px 0 rgba(0, 0, 0, 0.42), inset 0 1px 1px 0 rgba(255, 255, 255, 0.3) !important;
+}
+
+.glass-stat-chip:hover::before {
+    opacity: 1;
+}
+
+.stat-chip-badge {
+    font-size: 0.68rem !important;
+    font-weight: 700 !important;
+    letter-spacing: 0.8px !important;
+    padding: 4px 10px !important;
+    border-radius: 9999px !important;
+    text-transform: uppercase !important;
+}
+
+/* 3. Modern Elevated Surface Cards */
+.kemsa-card {
+    background: var(--surface-card) !important;
+    border: 1px solid var(--border-card) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.06), 0 2px 6px -1px rgba(15, 23, 42, 0.03) !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease;
+    position: relative;
+}
+
+.kemsa-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 34px -4px rgba(15, 23, 42, 0.12), 0 4px 12px -2px rgba(15, 23, 42, 0.06) !important;
+    border-color: #CBD5E1 !important;
+}
+
+/* KPI Metric Cards Specific Hover Glows */
+.kpi-metric-card {
+    border-radius: 18px !important;
+    transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.28s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.28s ease !important;
+}
+
+.kpi-metric-card:hover {
+    transform: translateY(-4px);
+}
+
+.kpi-theme-danger:hover {
+    box-shadow: 0 16px 36px -4px rgba(239, 68, 68, 0.20), 0 4px 12px rgba(239, 68, 68, 0.10) !important;
+    border-color: rgba(239, 68, 68, 0.50) !important;
+}
+
+.kpi-theme-warning:hover {
+    box-shadow: 0 16px 36px -4px rgba(245, 158, 11, 0.20), 0 4px 12px rgba(245, 158, 11, 0.10) !important;
+    border-color: rgba(245, 158, 11, 0.50) !important;
+}
+
+.kpi-theme-success:hover {
+    box-shadow: 0 16px 36px -4px rgba(16, 185, 129, 0.20), 0 4px 12px rgba(16, 185, 129, 0.10) !important;
+    border-color: rgba(16, 185, 129, 0.50) !important;
+}
+
+.kpi-theme-cyan:hover {
+    box-shadow: 0 16px 36px -4px rgba(14, 165, 233, 0.20), 0 4px 12px rgba(14, 165, 233, 0.10) !important;
+    border-color: rgba(14, 165, 233, 0.50) !important;
+}
+
+.kpi-theme-navy:hover {
+    box-shadow: 0 16px 36px -4px rgba(15, 23, 42, 0.20), 0 4px 12px rgba(15, 23, 42, 0.10) !important;
+    border-color: rgba(51, 65, 85, 0.50) !important;
+}
+
+.kemsa-chart-card {
+    border-radius: 18px !important;
+    overflow: hidden !important;
+}
+
+/* 4. Feature Pillar Cards with Midnight Navy Background & Glowing Orange Accent */
+.kemsa-pillar-card {
+    background: linear-gradient(160deg, #001733 0%, #002548 100%) !important;
+    background-color: #001733 !important;
+    border: 1px solid rgba(255, 255, 255, 0.18) !important;
+    border-radius: 18px !important;
+    box-shadow: 0 12px 32px -5px rgba(0, 15, 35, 0.6), 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    position: relative;
+    overflow: hidden;
+    color: #FFFFFF !important;
+}
+
+.kemsa-pillar-card .card-body {
+    background: transparent !important;
+    color: #FFFFFF !important;
+}
+
+.kemsa-pillar-card h4,
+.kemsa-pillar-card h5,
+.kemsa-pillar-card .card-title,
+.kemsa-pillar-card .pillar-title {
+    color: #FF5A1F !important;
+    font-weight: 800 !important;
+    font-size: 1.35rem !important;
+    letter-spacing: 0.2px;
+    line-height: 1.3 !important;
+}
+
+.kemsa-pillar-card p,
+.kemsa-pillar-card .card-text,
+.kemsa-pillar-card .pillar-desc {
+    color: #FFFFFF !important;
+    opacity: 0.96 !important;
+    font-size: 1.02rem !important;
+    line-height: 1.68 !important;
+}
+
+.kemsa-pillar-card span,
+.kemsa-pillar-card small,
+.kemsa-pillar-card .small,
+.kemsa-pillar-card .pillar-item {
+    color: #FFFFFF !important;
+    opacity: 0.96 !important;
+    font-size: 0.96rem !important;
+    font-weight: 500 !important;
+}
+
+.kemsa-pillar-card i,
+.kemsa-pillar-card .bi {
+    color: #FF5A1F !important;
+    font-size: 1.25rem !important;
+}
+
+.kemsa-pillar-card .border-top {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.kemsa-pillar-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #FF5A1F, #FF8A00, #10B981);
+    opacity: 0.9;
+    transition: opacity 0.3s ease, height 0.3s ease;
+}
+
+.kemsa-pillar-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px -8px rgba(0, 23, 51, 0.7), 0 0 25px rgba(255, 90, 31, 0.25) !important;
+    border-color: rgba(255, 90, 31, 0.45) !important;
+}
+
+.kemsa-pillar-card:hover::before {
+    opacity: 1;
+    height: 5px;
+}
+
+/* 5. 1-Click Quick Demo Persona Cards */
+.kemsa-demo-btn {
+    background: #FFFFFF !important;
+    border: 1.5px solid var(--border-card) !important;
+    border-radius: 14px !important;
+    padding: 13px 16px !important;
+    transition: all 0.22s ease-in-out !important;
+    text-align: left !important;
+    cursor: pointer;
+}
+
+.kemsa-demo-btn:hover {
+    background: var(--kemsa-emerald-subtle) !important;
+    border-color: var(--kemsa-emerald) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 18px rgba(16, 185, 129, 0.16) !important;
+}
+
+.kemsa-demo-btn:active {
+    transform: translateY(0);
+}
+
+/* 6. Pill-Style Segmented Navigation Tabs */
+.nav-tabs {
+    border-bottom: none !important;
+    gap: 8px;
+    padding: 6px !important;
+}
+
 .nav-tabs .nav-link {
-    color: #495057;
-    font-size: 0.95rem;
-    padding: 10px 18px;
-    border: none;
-    border-bottom: 3px solid transparent;
-    transition: all 0.2s ease;
+    color: var(--text-secondary) !important;
+    font-size: 0.94rem;
+    font-weight: 600;
+    padding: 11px 22px;
+    border-radius: 12px !important;
+    border: 1px solid transparent !important;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .nav-tabs .nav-link:hover {
-    color: #1abc9c;
-    border-color: transparent;
+    color: var(--kemsa-navy-dark) !important;
+    background-color: var(--kemsa-navy-subtle) !important;
 }
 
 .nav-tabs .nav-link.active {
-    color: #2c3e50 !important;
-    font-weight: 700 !important;
-    border-bottom: 3px solid #3498db !important;
-    background-color: transparent !important;
+    color: #FFFFFF !important;
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%) !important;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, 0.25) !important;
+    border-color: #0F172A !important;
 }
 
-/* Table styling */
+/* 7. High-Contrast Modern Data Tables */
+.table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 14px;
+    overflow: hidden;
+    background-color: #FFFFFF;
+}
+
 .table thead th {
-    background-color: #f1f3f5;
-    color: #495057;
-    font-weight: 600;
-    text-transform: uppercase;
+    background-color: #F8FAFC;
+    color: var(--kemsa-navy-dark);
+    font-weight: 700;
     font-size: 0.78rem;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid #dee2e6;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    padding: 14px 16px;
+    border-bottom: 2px solid var(--border-card);
 }
 
-/* Scrollable containers */
-.table-responsive {
-    max-height: 480px;
-    overflow-y: auto;
+.table tbody td {
+    padding: 12px 16px;
+    vertical-align: middle;
+    border-bottom: 1px solid #F1F5F9;
+    color: var(--text-primary);
+    font-size: 0.88rem;
+}
+
+.table tbody tr:hover {
+    background-color: #F8FAFC !important;
+}
+
+/* 8. Refined Form Inputs & Glowing Rings */
+.form-control, .form-select {
+    border-radius: 12px !important;
+    border: 1.5px solid var(--border-card) !important;
+    padding: 11px 16px !important;
+    color: var(--text-primary) !important;
+    font-size: 0.94rem !important;
+    transition: all 0.2s ease;
+}
+
+.form-control:focus, .form-select:focus {
+    border-color: var(--kemsa-emerald) !important;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.20) !important;
+    outline: none !important;
+}
+
+/* 9. Header / Navbar Polish */
+.kemsa-navbar {
+    background: linear-gradient(135deg, #020617 0%, #0F172A 100%) !important;
+    border-bottom: 3px solid var(--kemsa-emerald) !important;
+}
+
+/* 10. Semantic Badges */
+.kemsa-badge-navy {
+    background-color: var(--kemsa-navy-subtle);
+    color: var(--kemsa-navy-dark);
+    border: 1px solid rgba(15, 23, 42, 0.15);
+}
+
+.kemsa-badge-green, .kemsa-badge-emerald {
+    background-color: var(--kemsa-emerald-subtle);
+    color: var(--kemsa-emerald-dark);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.kemsa-badge-cyan {
+    background-color: var(--kemsa-cyan-subtle);
+    color: var(--kemsa-cyan-dark);
+    border: 1px solid rgba(14, 165, 233, 0.25);
+}
+
+.kemsa-badge-gold {
+    background-color: var(--kemsa-gold-subtle);
+    color: var(--kemsa-gold-dark);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.kemsa-badge-orange {
+    background-color: var(--kemsa-orange-subtle);
+    color: var(--kemsa-orange);
+    border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.kemsa-badge-danger {
+    background-color: var(--kemsa-danger-subtle);
+    color: var(--kemsa-danger-dark);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.kemsa-badge-purple {
+    background-color: var(--kemsa-purple-subtle);
+    color: var(--kemsa-purple-dark);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+/* 11. Dropdown Z-Index Stacking & Menu Visibility Fix */
+.filter-bar-card {
+    position: relative !important;
+    z-index: 1050 !important;
+    overflow: visible !important;
+}
+
+.filter-bar-card .card-body {
+    overflow: visible !important;
+}
+
+.Select, .Select-control, .dash-dropdown {
+    position: relative !important;
+    z-index: 1000 !important;
+}
+
+.Select-menu-outer {
+    position: absolute !important;
+    top: 100% !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 99999 !important;
+    border-radius: 12px !important;
+    border: 1.5px solid var(--border-card) !important;
+    box-shadow: 0 16px 36px -4px rgba(0, 0, 0, 0.28), 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+    background-color: var(--surface-card) !important;
+    max-height: 280px !important;
+    overflow: hidden !important;
+}
+
+.Select-menu {
+    max-height: 270px !important;
+    border-radius: 12px !important;
+    background-color: var(--surface-card) !important;
+    padding: 4px !important;
+}
+
+.Select-option {
+    padding: 10px 14px !important;
+    font-size: 0.92rem !important;
+    font-weight: 500 !important;
+    color: var(--text-primary) !important;
+    background-color: var(--surface-card) !important;
+    cursor: pointer !important;
+    border-radius: 8px !important;
+    margin-bottom: 2px !important;
+}
+
+.Select-option:hover, .Select-option.is-focused {
+    background-color: var(--kemsa-cyan-subtle) !important;
+    color: var(--kemsa-navy-dark) !important;
+    font-weight: 600 !important;
+}
+
+.Select-option.is-selected {
+    background-color: var(--kemsa-emerald-subtle) !important;
+    color: var(--kemsa-emerald-dark) !important;
+    font-weight: 700 !important;
+}
+
+/* 12. High-Contrast Typography Utilities */
+.filter-label {
+    color: var(--text-primary) !important;
+    font-weight: 800 !important;
+}
+
+.kpi-card-title {
+    color: var(--text-primary) !important;
+    font-weight: 800 !important;
+}
+
+.kpi-card-subtitle {
+    color: var(--text-secondary) !important;
+    font-weight: 600 !important;
+}
+
+.welcome-user-name {
+    color: var(--text-primary) !important;
+}
+
+.welcome-user-title {
+    color: var(--text-secondary) !important;
+}
+
+.dashboard-welcome-alert {
+    background-color: var(--surface-card) !important;
+    border: 1.5px solid var(--border-card) !important;
+    color: var(--text-primary) !important;
+}
+
+.main-dashboard-tabs {
+    background-color: var(--surface-card) !important;
+    border: 1.5px solid var(--border-card) !important;
+}
+
+.dashboard-tab-link {
+    color: var(--text-primary) !important;
+}
+
+.dashboard-tab-active {
+    color: #FFFFFF !important;
+    background: linear-gradient(135deg, #0F172A 0%, #1E293B 100%) !important;
+}
+
+/* 13. Full Dark Mode System */
+.theme-dark {
+    --bg-canvas: #0B1120;
+    --surface-card: #1E293B;
+    --text-primary: #FFFFFF;
+    --text-secondary: #E2E8F0;
+    --text-muted: #94A3B8;
+    --border-card: rgba(255, 255, 255, 0.12);
+    --border-card-hover: rgba(255, 255, 255, 0.25);
+    background-color: #0B1120 !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark body,
+.theme-dark #page-content,
+.theme-dark #app-root-container {
+    background-color: #0B1120 !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark .kemsa-card,
+.theme-dark .card {
+    background-color: #1E293B !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: #FFFFFF !important;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+.theme-dark .kpi-theme-danger {
+    background: linear-gradient(180deg, #1E293B 0%, #2A171D 100%) !important;
+    border-color: rgba(239, 68, 68, 0.35) !important;
+}
+
+.theme-dark .kpi-theme-warning {
+    background: linear-gradient(180deg, #1E293B 0%, #2A2117 100%) !important;
+    border-color: rgba(245, 158, 11, 0.35) !important;
+}
+
+.theme-dark .kpi-theme-success {
+    background: linear-gradient(180deg, #1E293B 0%, #152B22 100%) !important;
+    border-color: rgba(16, 185, 129, 0.35) !important;
+}
+
+.theme-dark .kpi-theme-cyan {
+    background: linear-gradient(180deg, #1E293B 0%, #152535 100%) !important;
+    border-color: rgba(14, 165, 233, 0.35) !important;
+}
+
+.theme-dark .kpi-theme-navy {
+    background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%) !important;
+    border-color: rgba(255, 255, 255, 0.18) !important;
+}
+
+.theme-dark .card-header {
+    background-color: #131C31 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12) !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark .filter-label {
+    color: #FFFFFF !important;
+}
+
+.theme-dark .kpi-card-title {
+    color: #E2E8F0 !important;
+}
+
+.theme-dark .kpi-card-subtitle {
+    color: #CBD5E1 !important;
+}
+
+.theme-dark .welcome-user-name {
+    color: #FFFFFF !important;
+}
+
+.theme-dark .welcome-user-title {
+    color: #CBD5E1 !important;
+}
+
+.theme-dark .dashboard-welcome-alert {
+    background-color: #1E293B !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark .main-dashboard-tabs {
+    background-color: #1E293B !important;
+    border-color: rgba(255, 255, 255, 0.12) !important;
+}
+
+.theme-dark .nav-tabs .nav-link,
+.theme-dark .dashboard-tab-link {
+    color: #E2E8F0 !important;
+}
+
+.theme-dark .nav-tabs .nav-link:hover {
+    color: #38BDF8 !important;
+    background-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+.theme-dark .nav-tabs .nav-link.active,
+.theme-dark .dashboard-tab-active {
+    color: #FFFFFF !important;
+    background: linear-gradient(135deg, #059669 0%, #10B981 100%) !important;
+    box-shadow: 0 4px 16px rgba(16, 185, 129, 0.35) !important;
+    border-color: #10B981 !important;
+}
+
+/* Dark Mode Dropdowns */
+.theme-dark .Select-control {
+    background-color: #0F172A !important;
+    border-color: rgba(255, 255, 255, 0.22) !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark .Select-value-label,
+.theme-dark .Select-input input,
+.theme-dark .Select-placeholder {
+    color: #FFFFFF !important;
+}
+
+.theme-dark .Select-menu-outer {
+    background-color: #0F172A !important;
+    border-color: rgba(255, 255, 255, 0.22) !important;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.7) !important;
+}
+
+.theme-dark .Select-menu {
+    background-color: #0F172A !important;
+}
+
+.theme-dark .Select-option {
+    background-color: #0F172A !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark .Select-option:hover,
+.theme-dark .Select-option.is-focused {
+    background-color: #0284C7 !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark .Select-option.is-selected {
+    background-color: #059669 !important;
+    color: #FFFFFF !important;
+}
+
+/* Dark Mode Tables */
+.theme-dark .table {
+    background-color: #1E293B !important;
+    color: #FFFFFF !important;
+}
+
+.theme-dark .table thead th {
+    background-color: #0F172A !important;
+    color: #FFFFFF !important;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.15) !important;
+}
+
+.theme-dark .table tbody td {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #FFFFFF !important;
+    background-color: #1E293B !important;
+}
+
+.theme-dark .table tbody tr:hover td {
+    background-color: #2D3D54 !important;
+    color: #FFFFFF !important;
+}
+
+/* 14. Scrollbar Customization */
+::-webkit-scrollbar {
+    width: 7px;
+    height: 7px;
+}
+
+::-webkit-scrollbar-track {
+    background: #F1F5F9;
+}
+
+.theme-dark ::-webkit-scrollbar-track {
+    background: #0F172A;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #94A3B8;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #64748B;
+}
+
+.theme-dark ::-webkit-scrollbar-thumb {
+    background: #475569;
+}
+
+.theme-dark ::-webkit-scrollbar-thumb:hover {
+    background: #64748B;
+}
+
+/* 15. Unified Footer & Team Card Polish */
+.hover-text-white {
+    transition: color 0.2s ease;
+}
+
+.hover-text-white:hover {
+    color: #FFFFFF !important;
+}
+
+.team-member-chip {
+    background: rgba(255, 255, 255, 0.04) !important;
+    border: 1px solid rgba(255, 255, 255, 0.12) !important;
+    border-radius: 14px !important;
+    transition: transform 0.25s ease, border-color 0.25s ease, background 0.25s ease, box-shadow 0.25s ease;
+}
+
+.team-member-chip:hover {
+    transform: translateY(-3px);
+    background: rgba(255, 255, 255, 0.08) !important;
+    border-color: rgba(16, 185, 129, 0.45) !important;
+    box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Institutional Teal Footer with Ambient Glow & Transitions */
+.kemsa-unified-footer {
+    position: relative;
+    background: radial-gradient(circle at 18% 25%, rgba(16, 185, 129, 0.24) 0%, transparent 48%),
+                radial-gradient(circle at 82% 75%, rgba(14, 165, 233, 0.20) 0%, transparent 44%),
+                radial-gradient(circle at 50% 0%, rgba(11, 138, 98, 0.35) 0%, transparent 60%),
+                linear-gradient(155deg, #021B15 0%, #063428 35%, #0B4A3A 70%, #0B8A62 100%) !important;
+    border-top: 4px solid #0B8A62 !important;
+    border-image: linear-gradient(90deg, #0B8A62 0%, #10B981 35%, #38BDF8 70%, #FF5A1F 100%) 1 !important;
+    box-shadow: 0 -12px 35px -5px rgba(11, 138, 98, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+    overflow: hidden;
+    transition: background 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.6s ease;
+}
+
+.kemsa-unified-footer::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.025' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+    transition: opacity 0.5s ease;
+}
+
+.kemsa-unified-footer:hover {
+    box-shadow: 0 -16px 45px -4px rgba(11, 138, 98, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25) !important;
+}
+
+/* Harmonized Teal Glass Pillar Cards within the Footer */
+.kemsa-unified-footer .kemsa-pillar-card {
+    background: linear-gradient(160deg, rgba(2, 24, 18, 0.88) 0%, rgba(5, 40, 31, 0.88) 100%) !important;
+    background-color: #021812 !important;
+    backdrop-filter: blur(12px) !important;
+    -webkit-backdrop-filter: blur(12px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.16) !important;
+    box-shadow: 0 10px 28px -4px rgba(0, 15, 10, 0.5), 0 3px 8px rgba(0, 0, 0, 0.2) !important;
+    transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.kemsa-unified-footer .kemsa-pillar-card:hover {
+    transform: translateY(-5px) !important;
+    box-shadow: 0 18px 38px -6px rgba(0, 20, 15, 0.7), 0 0 22px rgba(16, 185, 129, 0.35) !important;
+    border-color: rgba(16, 185, 129, 0.5) !important;
 }
 
