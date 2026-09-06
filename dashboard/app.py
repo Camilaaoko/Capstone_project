@@ -1,16 +1,15 @@
-"""Dash application factory and main layout definition."""
+"""Dash application factory and multi-page layout architecture."""
 
 import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 from dashboard.components.navbar import create_navbar
-from dashboard.components.filters import create_filter_bar
 from dashboard.callbacks.main_callbacks import register_callbacks
 
 
 def create_app() -> dash.Dash:
-    """Instantiates and configures the Dash application."""
+    """Instantiates and configures the Dash multi-page application."""
     app = dash.Dash(
         __name__,
         external_stylesheets=[
@@ -21,42 +20,25 @@ def create_app() -> dash.Dash:
         title="KEMSA Healthcare Supply Chain Intelligence Platform"
     )
 
-    # Base Layout
+    # Base Layout with URL router & Session Store
     app.layout = html.Div([
-        # 1. Top Navbar
-        create_navbar(),
+        # 1. URL Location for SPA Multi-Page Routing
+        dcc.Location(id="url", refresh=False),
 
-        # 2. Main Content Container
-        dbc.Container([
-            # Global Filters
-            create_filter_bar(),
+        # 2. Session Store for Mock Authentication State
+        dcc.Store(id="session-auth", storage_type="session"),
 
-            # Dynamic KPI Metric Cards
-            html.Div(id="kpi-deck-container", className="mb-2"),
+        # 3. Local Store for Persistent Light/Dark Theme Preference
+        dcc.Store(id="theme-store", storage_type="local", data="light"),
 
-            # Main View Navigation Tabs
-            dbc.Tabs(
-                [
-                    dbc.Tab(label="📊 Executive Overview (KEMSA)", tab_id="tab-executive", tab_class_name="fw-semibold"),
-                    dbc.Tab(label="🗺️ County & Geographic Intelligence", tab_id="tab-county", tab_class_name="fw-semibold"),
-                    dbc.Tab(label="🏥 Facility & Inventory Operations", tab_id="tab-facility", tab_class_name="fw-semibold"),
-                    dbc.Tab(label="🔄 AI Redistribution & Allocation Engine", tab_id="tab-redistribution", tab_class_name="fw-semibold"),
-                ],
-                id="main-dashboard-tabs",
-                active_tab="tab-executive",
-                className="mb-4 shadow-sm bg-white p-2 rounded"
-            ),
+        # 4. Dynamic Top Navbar
+        html.Div(id="navbar-container", children=create_navbar()),
 
-            # Dynamic Content Area for Active View
-            dcc.Loading(
-                id="loading-active-view",
-                type="circle",
-                children=html.Div(id="active-view-container")
-            )
-        ], fluid=True, className="px-4 pb-5")
-    ], style={"backgroundColor": "#f8f9fa", "minHeight": "100vh"})
+        # 5. Main Dynamic Page Content Container
+        html.Div(id="page-content", style={"minHeight": "calc(100vh - 70px)"})
+    ], id="app-root-container", className="theme-light", style={"minHeight": "100vh"})
 
-    # Register callbacks
+    # Register all routing, authentication, and data callbacks
     register_callbacks(app)
 
     return app
@@ -65,4 +47,3 @@ def create_app() -> dash.Dash:
 # Expose Flask server for production WSGI deployments (e.g., Gunicorn)
 app = create_app()
 server = app.server
-
