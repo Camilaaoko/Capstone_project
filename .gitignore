@@ -38,6 +38,7 @@ etl_*_log*.txt
 full_run_log*.txt
 smoke_log*.txt
 
-# OS files
+# OS & Temp files
 .DS_Store
 Thumbs.db
+~$*

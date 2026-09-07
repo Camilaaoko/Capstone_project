@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: kemsa-supply-chain-intelligence
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: bash render_build.sh
+    startCommand: gunicorn wsgi:server --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: PORT
+        value: 10000
+

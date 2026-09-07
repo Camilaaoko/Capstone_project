@@ -75,11 +75,11 @@ def render_landing_page():
                     dbc.Col([
                         html.Div([
                             html.Div([
-                                html.H3("150+", className="font-mono fw-bolder mb-0", style={"color": "#34D399", "fontSize": "2.4rem", "lineHeight": "1"}),
+                                html.H3("235+", className="font-mono fw-bolder mb-0", style={"color": "#34D399", "fontSize": "2.4rem", "lineHeight": "1"}),
                                 html.Span("ACTIVE", className="stat-chip-badge", style={"backgroundColor": "rgba(52, 211, 153, 0.15)", "color": "#34D399", "border": "1px solid rgba(52, 211, 153, 0.3)"})
                             ], className="d-flex align-items-center justify-content-between mb-2"),
                             html.Div("Health Facilities", className="fw-bold text-white mb-1", style={"fontSize": "1.05rem", "letterSpacing": "0.2px"}),
-                            html.Small("Level 2 to Level 6 hospital nodes", className="text-white-50", style={"fontSize": "0.82rem"})
+                            html.Small("Level 2 to Level 6 across 47 counties", className="text-white-50", style={"fontSize": "0.82rem"})
                         ], className="p-4 glass-stat-chip h-100 d-flex flex-column justify-content-between")
                     ], xs=12, sm=6, lg=3, className="mb-3 mb-lg-0"),
 
@@ -162,6 +162,7 @@ def render_landing_page():
                             html.H4("County & GIS Intelligence", className="fw-bold mb-3", style={"color": "#FF5A1F", "fontWeight": "800", "fontSize": "1.35rem", "lineHeight": "1.3"}),
                             html.P(
                                 "Interactive map showing stock levels and shortages across 150 clinics and hospitals in 10 counties.",
+                                "Interactive map showing stock levels and shortages across 235+ clinics and hospitals in all 47 counties.",
                                 className="mb-4",
                                 style={"color": "#FFFFFF", "opacity": "1", "fontSize": "1.02rem", "lineHeight": "1.68"}
                             ),
