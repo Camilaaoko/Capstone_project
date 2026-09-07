@@ -1,84 +1,78 @@
 # Walkthrough: Healthcare Supply Chain Intelligence Dashboard (Dash Framework)
 
-We have implemented an interactive, multi-tier **Dash (Plotly)** web application with a modular package architecture for the Healthcare Supply Chain Intelligence Platform.
+We have implemented a **Landing Page**, a **Mock Login Authentication Portal**, and **Multi-Page Routing** for the KEMSA Healthcare Supply Chain Intelligence Platform using the **Plotly Dash** framework.
 
 ---
 
 ## 1. Modular Package Architecture
 
-The dashboard is structured under [`dashboard/`](file:///d:/emtech/PLP/Capstone/Capstone_project/dashboard) with clear separation of data services, reusable components, stakeholder views, and reactive callbacks:
+The application is structured under [`dashboard/`](file:///d:/emtech/PLP/Capstone/Capstone_project/dashboard) with clear separation of authentication, data services, reusable components, stakeholder views, and reactive callbacks:
 
 ```
 Capstone_project/
-├── run_dashboard.py            # 🚀 Root execution script: "python run_dashboard.py"
-├── requirements.txt            # Updated with dash, dash-bootstrap-components, plotly
+├── run_dashboard.py                 # 🚀 Root execution script: "python run_dashboard.py"
+├── requirements.txt                 # dash, dash-bootstrap-components, plotly, pandas, numpy
 └── dashboard/
-    ├── app.py                  # Core Dash instance with Bootstrap 'FLATLY' theme
-    ├── data_service.py         # Cached SQLite query layer reading from analytics.db
+    ├── app.py                       # Core Dash instance with URL location router & session store
+    ├── auth.py                      # 🛡️ Mock user authentication repository & validator
+    ├── data_service.py              # Cached SQLite query layer reading from analytics.db
     ├── assets/
-    │   └── custom.css          # Custom styling (card hover effects, tabs, clean tables)
+    │   └── custom.css               # Custom styling (hero banners, card hover effects, clean tables)
     ├── components/
-    │   ├── navbar.py           # Header navigation with KEMSA branding & live status badges
-    │   ├── filters.py          # Dropdown filters: County, Commodity Category, Facility Tier
-    │   └── cards.py            # Styled KPI metric cards with status indicator badges
+    │   ├── navbar.py                # Dynamic navigation bar (public vs. authenticated state + logout)
+    │   ├── filters.py               # Dropdown filters: County, Commodity Category, Facility Tier
+    │   └── cards.py                 # Styled KPI metric cards with status indicator badges
     ├── views/
-    │   ├── executive_view.py   # 📊 View 1: KEMSA National KPIs, Wastage, Supplier Reliability
-    │   ├── county_view.py      # 🗺️ View 2: Geographic Map, County Heatmap, Impacted Facilities
-    │   ├── facility_view.py    # 🏥 View 3: Facility DOS Gauges, FEFO Batch Expiry Tracker
-    │   └── redistribution_view.py # 🔄 View 4: AI Surplus-to-Shortage Matching & Logistics Costs
+    │   ├── landing_page.py          # 🌟 Public Landing Page: Hero, Feature Cards, Metrics, Personas
+    │   ├── login_page.py            # 🔐 Login Portal: Auth form + 1-Click Quick Demo Accounts
+    │   ├── dashboard_view.py        # 📊 Authenticated multi-tab analytics dashboard container
+    │   ├── executive_view.py        # 📊 View 1: KEMSA National KPIs, Wastage, Supplier Reliability
+    │   ├── county_view.py           # 🗺️ View 2: Geographic Map, County Heatmap, Impacted Facilities
+    │   ├── facility_view.py         # 🏥 View 3: Facility DOS Gauges, FEFO Batch Expiry Tracker
+    │   └── redistribution_view.py   # 🔄 View 4: AI Surplus-to-Shortage Matching & Logistics Costs
     └── callbacks/
-        └── main_callbacks.py   # Reactive callbacks for instant cross-filtering & drilldowns
+        └── main_callbacks.py        # Reactive callbacks for routing, auth, cross-filtering & drilldowns
 ```
 
 ---
 
-## 2. Four Multi-Tier Stakeholder Views
+## 2. Application Pages & Features
 
-### **View 1: Executive Overview (KEMSA National)**
-* **Stockout by Category**: Horizontal bar chart comparing stockout days across categories (Antibiotics, Maternal Health, Antimalarials, etc.).
-* **Expiry Wastage (KES)**: Highlights top commodities contributing to financial expiry loss.
-* **Supplier Performance Matrix**: Bubble scatter plot charting supplier delay days against on-time delivery rates vs. KEMSA's 90% target.
-* **Redistribution Savings vs. Transport Cost**: Quantifies economic savings achieved by local redistribution over emergency procurement.
+### **Page 1: Platform Landing Page (`/`)**
+* **Hero Banner**: Healthcare gradient background, national impact metrics (47 Counties, 150+ Facilities, 45 Commodities, 99.4% AI Match Rate).
+* **Core Capabilities Showcase**: 4 feature cards detailing the Executive Overview, County GIS Tracking, Facility Operations, and AI Redistribution.
+* **Stakeholder Personas**: Clear alignment for Executive Leadership, County Health Directors, Facility In-Charges, and Logistics Planners.
+* **Call-to-Action**: "Access Dashboard" button routing directly to the Login page.
 
-### **View 2: County & Geographic Intelligence (County Health Directors)**
-* **Geospatial Map**: Scatter plot of health facilities across Kenya sized by daily patient visits and colored by stockout intensity.
-* **County Stockout Severity Ranking**: Compares stockout days and the number of affected health centers per county.
-* **County Deficit Table**: Granular breakdown of estimated commodity unit shortages.
+### **Page 2: Mock Authentication Portal (`/login`)**
+* **Authentication Form**: Validates mock credentials with instant error feedback.
+* **⚡ 1-Click Quick Demo Buttons**: Instant login without typing for 5 roles:
+  * **Super Admin**: `admin` / `admin` (or `admin@kemsa.go.ke`)
+  * **KEMSA Executive**: `executive` / `executive` (or `executive@kemsa.go.ke`)
+  * **County Health Director**: `director` / `director` (or `county@health.go.ke`)
+  * **Facility Pharmacist**: `facility` / `facility` (or `facility@clinic.go.ke`)
+  * **Logistics Planner**: `planner` / `planner` (or `planner@logistics.go.ke`)
 
-### **View 3: Facility & Inventory Operations (Health Facility In-Charges)**
-* **Interactive Facility Selector**: Filter by any health facility in the network.
-* **Days-of-Stock (DOS) Monitor**: Color-coded horizontal bars indicating `STOCKOUT`, `CRITICAL`, `LOW`, `NORMAL`, and `OVERSTOCKED` status against safety stock thresholds.
-* **FEFO Batch Expiry Tracker**: Live table of active batches with manufacturing dates, expiry dates, remaining quantities, and days-to-expiry countdown.
-
-### **View 4: AI Redistribution & Allocation Engine (Logistics Planners)**
-* **Active Surplus-to-Shortage Recommendations**: Live transfer orders matching surplus source facilities to shortage destination facilities.
-* **Distance vs. Transport Cost Analysis**: Visualizes transfer routes with bubble sizes representing recommended units to transfer.
-* **Commodity Unit Volume Reallocation**: Identifies which commodities have the highest network redistribution potential.
+### **Page 3: Authenticated Analytics Dashboard (`/dashboard`)**
+* **Session Guard**: Protects analytical views, redirecting unauthenticated traffic to login.
+* **Dynamic Header**: Displays logged-in user profile, role badge, and a **"Sign Out"** button.
+* **Multi-Tier Tabs**:
+  * **View 1: Executive Overview (KEMSA National)**: Stockout days, expiry financial loss, supplier delay matrix, redistribution savings.
+  * **View 2: County & Geographic Intelligence**: Facility geospatial scatter map, county severity ranking, deficit breakdown.
+  * **View 3: Facility & Inventory Operations**: Days-of-Stock (DOS) monitors, FEFO batch expiry tracker with countdown.
+  * **View 4: AI Redistribution & Allocation Engine**: Surplus-to-shortage transfer orders, route distance vs. transport cost analysis.
 
 ---
 
-## 3. How to Run the Dashboard
+## 3. How to Run the Application
 
 ```bash
-# 1. Ensure you are in the project root directory
-cd d:\emtech\PLP\Capstone\Capstone_project
-
-# 2. Run the dashboard
-python run_dashboard.py
+# 1. From the project root directory:
+.\venv\Scripts\python.exe run_dashboard.py
 ```
 
-### Optional Command-Line Flags:
-* Custom Port: `python run_dashboard.py --port 8080`
-* Custom Host: `python run_dashboard.py --host 0.0.0.0`
-* Debug Mode: `python run_dashboard.py --debug`
-
-Access the web interface in your browser at **`http://127.0.0.1:8050/`**.
-
----
-
-## 4. Validation & Verification Results
-
-* **Dependency Installation**: `dash`, `dash-bootstrap-components`, `plotly`, `pandas`, `numpy` installed and verified.
-* **ETL Pipeline**: Ingested raw synthetic records, cleaned 7 data-quality anomalies, constructed the star schema, and populated [`analytics/analytics.db`](file:///d:/emtech/PLP/Capstone/Capstone_project/analytics/analytics.db) (`PASS`).
-* **Data Service Verification**: All SQL queries in `data_service.py` executed cleanly against `analytics.db` without missing columns or syntax errors.
-* **View Smoke Tests**: All 4 stakeholder views rendered and returned valid Dash component trees (`PASS`).
+### Accessing the Web Application:
+* Open your browser and navigate to: **`http://127.0.0.1:8050/`**
+* Click **"Access Dashboard"** or **"Sign In"** to open the login portal.
+* Use any mock credentials or click a **1-Click Demo Persona** to access the dashboard.
+* Click **"Sign Out"** in the top navigation bar to return to the landing page.
