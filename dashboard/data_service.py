@@ -17,7 +17,10 @@ def get_connection() -> sqlite3.Connection:
             f"Analytics database not found at {DB_PATH}. "
             "Please run 'python etl_pipeline.py' first to generate analytics.db."
         )
-    return sqlite3.connect(str(DB_PATH), check_same_thread=False)
+    conn = sqlite3.connect(str(DB_PATH), check_same_thread=False, timeout=60.0)
+    conn.execute("PRAGMA busy_timeout = 60000;")
+    conn.execute("PRAGMA journal_mode = WAL;")
+    return conn
 
 
 def get_filter_options() -> Dict[str, List[Dict[str, str]]]:

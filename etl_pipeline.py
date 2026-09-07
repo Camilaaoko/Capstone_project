@@ -540,9 +540,21 @@ class Etl:
     def load(self):
         os.makedirs(self.output_dir, exist_ok=True)
         db_path = os.path.join(self.output_dir, "analytics.db")
-        if os.path.exists(db_path):
-            os.remove(db_path)
-        conn = sqlite3.connect(db_path)
+        for suffix in ["", "-journal", "-wal", "-shm"]:
+            f = db_path + suffix
+            if os.path.exists(f):
+                try:
+                    os.remove(f)
+                except OSError:
+                    pass
+
+        conn = sqlite3.connect(db_path, timeout=120.0)
+        conn.execute("PRAGMA journal_mode = WAL;")
+        conn.execute("PRAGMA synchronous = NORMAL;")
+        conn.execute("PRAGMA busy_timeout = 60000;")
+        conn.execute("PRAGMA cache_size = -64000;")
+        conn.execute("PRAGMA temp_store = MEMORY;")
+
         self.note(f"Loading to {os.path.abspath(db_path)}")
         order = ["DIM_DATE", "DIM_FACILITY", "DIM_COMMODITY", "DIM_SUPPLIER", "DIM_WAREHOUSE",
                  "FACT_INVENTORY", "FACT_CONSUMPTION", "FACT_ORDERS", "FACT_SHIPMENTS",
