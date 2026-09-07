@@ -1,7 +1,7 @@
 """Main reactive callbacks connecting routing, authentication, filters, tabs, and data views."""
 
 import dash
-from dash import Input, Output, State, ctx, html, dcc
+from dash import Input, Output, State, ctx, html, dcc, ALL
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -14,7 +14,7 @@ from dashboard.views.landing_page import render_landing_page
 from dashboard.views.login_page import render_login_page
 from dashboard.views.dashboard_view import render_dashboard_view
 from dashboard.views.executive_view import render_executive_view
-from dashboard.views.county_view import render_county_view
+from dashboard.views.county_view import render_county_view, render_facility_dossier_panel
 from dashboard.views.facility_view import render_facility_view
 from dashboard.views.redistribution_view import render_redistribution_view
 from dashboard.data_service import (
@@ -221,26 +221,68 @@ def register_callbacks(app: dash.Dash):
             Input("main-dashboard-tabs", "active_tab"),
             Input("global-county-filter", "value"),
             Input("global-category-filter", "value"),
+            Input("global-tier-filter", "value"),
             Input("theme-store", "data")
         ],
         prevent_initial_call=False
     )
-    def render_active_tab_content(active_tab, county, category, theme_data):
+    def render_active_tab_content(active_tab, county, category, tier, theme_data):
         county = county or "ALL"
         category = category or "ALL"
+        tier = tier or "ALL"
         active_tab = active_tab or "tab-executive"
         theme = theme_data if theme_data in ["light", "dark"] else "light"
 
         if active_tab == "tab-executive":
             return render_executive_view(county=county, category=category, theme=theme)
         elif active_tab == "tab-county":
-            return render_county_view(county=county, theme=theme)
+            return render_county_view(county=county, category=category, tier=tier, theme=theme)
         elif active_tab == "tab-facility":
             return render_facility_view(theme=theme)
         elif active_tab == "tab-redistribution":
             return render_redistribution_view(county=county, category=category, theme=theme)
 
         return render_executive_view(county=county, category=category, theme=theme)
+
+    # -------------------------------------------------------------------------
+    # 6B. Reactive Callback for Tapping Facilities on the Map of Kenya
+    # -------------------------------------------------------------------------
+    @app.callback(
+        Output("facility-dossier-container", "children"),
+        [
+            Input("county-map-graph", "clickData"),
+            Input({"type": "btn-reset-dossier", "index": ALL}, "n_clicks"),
+            Input("global-county-filter", "value"),
+            Input("global-category-filter", "value"),
+            Input("global-tier-filter", "value"),
+            Input("theme-store", "data")
+        ],
+        prevent_initial_call=True
+    )
+    def handle_map_click_and_dossier(click_data, reset_clicks, county, category, tier, theme_data):
+        triggered_id = ctx.triggered_id
+        county = county or "ALL"
+        category = category or "ALL"
+        tier = tier or "ALL"
+        theme = theme_data if theme_data in ["light", "dark"] else "light"
+
+        # Check if reset button was triggered
+        if isinstance(triggered_id, dict) and triggered_id.get("type") == "btn-reset-dossier":
+            return render_facility_dossier_panel(facility_id=None, county=county, category=category, tier=tier, theme=theme)
+
+        # Revert to scope overview if filters change
+        if triggered_id in ["global-county-filter", "global-category-filter", "global-tier-filter"]:
+            return render_facility_dossier_panel(facility_id=None, county=county, category=category, tier=tier, theme=theme)
+
+        # Handle map point tap / click
+        if click_data and "points" in click_data and len(click_data["points"]) > 0:
+            pt = click_data["points"][0]
+            customdata = pt.get("customdata")
+            if customdata and len(customdata) > 0:
+                facility_id = customdata[0]
+                return render_facility_dossier_panel(facility_id=facility_id, county=county, category=category, tier=tier, theme=theme)
+
+        return render_facility_dossier_panel(facility_id=None, county=county, category=category, tier=tier, theme=theme)
 
     # -------------------------------------------------------------------------
     # 7. Update Facility Drilldown (DOS and Batches) when facility dropdown or theme changes
