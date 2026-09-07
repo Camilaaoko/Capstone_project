@@ -1,6 +1,6 @@
 # Healthcare Supply-Chain Intelligence Platform for KEMSA
 
-An end-to-end, AI-powered healthcare supply-chain intelligence and redistribution platform designed for Kenya's public health logistics network (KEMSA). The platform combines synthetic big-data generation across **all 47 Kenyan counties**, an automated Star-Schema ETL pipeline with query acceleration, predictive machine learning (demand forecasting, stockout risk classification, FEFO expiry tracking), an inventory imbalance optimization engine, and an interactive Dash web application.
+An end-to-end, healthcare supply-chain intelligence and redistribution platform designed for Kenya's public health logistics network (KEMSA). The platform combines synthetic big-data generation across **all 47 Kenyan counties**, an automated Star-Schema ETL pipeline with query acceleration, predictive machine learning (demand forecasting, stockout risk classification, FEFO expiry tracking), an inventory imbalance optimization engine, and an interactive Dash web application.
 
 > [!IMPORTANT]
 > **SYNTHETIC DATA DISCLAIMER**  
@@ -92,7 +92,7 @@ pytest tests/ -v
 python run_analytics_main.py
 
 # Step 5: Launch the interactive Dash web dashboard (http://127.0.0.1:8050)
-python app_main.py
+python run_dashboard.py
 ```
 
 ---
@@ -202,4 +202,4 @@ pytest tests/ -v
 
 ## 9. License & Attribution
 
-Developed for academic research and capstone demonstration under the **MIT License**. Created by Camila Aoko for the KEMSA Healthcare Supply Chain Intelligence Platform project.
+Developed for academic research and capstone demonstration under the **MIT License**. Created by IronClad for the KEMSA Healthcare Supply Chain Intelligence Platform project.
