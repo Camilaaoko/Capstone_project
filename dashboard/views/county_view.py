@@ -423,12 +423,8 @@ def render_county_view(county: str = "ALL", category: str = "ALL", tier: str = "
             title=f"<b>Stockout Severity by {chart_title_scope}</b>",
             labels={"stockout_days": "Stockout Days", "location_name": "Jurisdiction", "facilities_with_stockouts": "Impacted Facilities"}
         )
-        fig_county.update_layout(
-            margin=dict(l=20, r=20, t=40, b=80),
-            **layout,
-            xaxis_tickangle=-45,
-            height=380
-        )
+        fig_county.update_layout(**layout, height=380)
+        fig_county.update_layout(margin=dict(l=20, r=20, t=40, b=80), xaxis_tickangle=-45)
         fig_county.update_traces(textposition="outside")
     else:
         fig_county = go.Figure().add_annotation(text="No Regional Stockout Data Available", showarrow=False)

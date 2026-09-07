@@ -12,6 +12,9 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from dashboard.data_service import DB_PATH
 from dashboard.app import app
 
+# Expose WSGI server for Gunicorn / Render deployments
+server = app.server
+
 
 def main():
     parser = argparse.ArgumentParser(description="Run KEMSA Healthcare Supply Chain Intelligence Dashboard")

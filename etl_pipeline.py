@@ -540,6 +540,9 @@ class Etl:
     def load(self):
         os.makedirs(self.output_dir, exist_ok=True)
         db_path = os.path.join(self.output_dir, "analytics.db")
+        if os.path.exists(db_path):
+            os.remove(db_path)
+        conn = sqlite3.connect(db_path)
         for suffix in ["", "-journal", "-wal", "-shm"]:
             f = db_path + suffix
             if os.path.exists(f):
