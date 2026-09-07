@@ -71,12 +71,15 @@ def create_kenya_map_figure(county: str = "ALL", category: str = "ALL", tier: st
         fig.add_trace(go.Scattermap(
             lat=df_wh["latitude"],
             lon=df_wh["longitude"],
+            lat=df_wh["latitude"].tolist(),
+            lon=df_wh["longitude"].tolist(),
             mode="markers+text",
             marker=dict(
                 size=15,
                 color="#F59E0B"
             ),
             text=df_wh["warehouse_name"].apply(lambda x: "📦 " + str(x).replace(" Regional Warehouse", "").replace(" National Central Warehouse", "")),
+            text=df_wh["warehouse_name"].apply(lambda x: "📦 " + str(x).replace(" Regional Warehouse", "").replace(" National Central Warehouse", "")).tolist(),
             textposition="top right",
             textfont=dict(size=10, color="#FFFFFF" if is_dark else "#1E293B", family="Plus Jakarta Sans, sans-serif"),
             name="KEMSA Warehouses / Depots",
@@ -93,6 +96,8 @@ def create_kenya_map_figure(county: str = "ALL", category: str = "ALL", tier: st
         
         max_visits = max(df_loc["average_daily_patient_visits"].max(), 1)
         sizes = 10 + (df_loc["average_daily_patient_visits"] / max_visits) * 24
+        max_visits = max(float(df_loc["average_daily_patient_visits"].max()), 1.0)
+        sizes = (10 + (df_loc["average_daily_patient_visits"] / max_visits) * 24).round(1).tolist()
         
         customdata = df_loc[[
             "facility_id", "facility_name", "county", "sub_county", 
@@ -100,6 +105,7 @@ def create_kenya_map_figure(county: str = "ALL", category: str = "ALL", tier: st
             "bed_capacity", "average_daily_patient_visits", 
             "total_stockout_days", "total_units_short", "commodities_short_count"
         ]].values
+        ]].values.tolist()
         
         hovertemplate = (
             "<b>🏥 %{customdata[1]}</b><br>"
@@ -115,13 +121,19 @@ def create_kenya_map_figure(county: str = "ALL", category: str = "ALL", tier: st
             "<extra></extra>"
         )
         
+        stockout_days_list = df_loc["total_stockout_days"].astype(float).tolist()
+        max_stockout = max(float(df_loc["total_stockout_days"].max()), 1.0)
+        
         fig.add_trace(go.Scattermap(
             lat=df_loc["latitude"],
             lon=df_loc["longitude"],
+            lat=df_loc["latitude"].astype(float).tolist(),
+            lon=df_loc["longitude"].astype(float).tolist(),
             mode="markers",
             marker=dict(
                 size=sizes,
                 color=df_loc["total_stockout_days"],
+                color=stockout_days_list,
                 colorscale=[
                     [0.0, "#10B981"],   # Green (low stockouts)
                     [0.35, "#F59E0B"],  # Amber (moderate)
@@ -130,6 +142,7 @@ def create_kenya_map_figure(county: str = "ALL", category: str = "ALL", tier: st
                 ],
                 cmin=0,
                 cmax=max(df_loc["total_stockout_days"].max(), 1),
+                cmax=max_stockout,
                 colorbar=dict(
                     title=dict(text="Stockout<br>Days", font=dict(size=11, color="#FFFFFF" if is_dark else "#1E293B")),
                     thickness=12,
