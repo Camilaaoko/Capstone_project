@@ -191,40 +191,149 @@ def get_supplier_performance() -> pd.DataFrame:
     return df
 
 
-def get_county_summary() -> pd.DataFrame:
-    """Returns county-level aggregation of stockouts, facilities, and consumption."""
+def get_county_summary(county: str = "ALL", category: str = "ALL", tier: str = "ALL") -> pd.DataFrame:
+    """Returns county or sub-county level aggregation of stockouts, facilities, and consumption."""
     conn = get_connection()
-    df = pd.read_sql("""
-        SELECT s.county, 
+    is_single_county = county != "ALL"
+    group_col = "f.sub_county as location_name, f.county" if is_single_county else "s.county as location_name, s.county"
+    
+    q = f"""
+        SELECT {group_col},
                SUM(s.stockout_days) as stockout_days,
                COUNT(DISTINCT s.facility_id) as facilities_with_stockouts,
                COUNT(DISTINCT s.commodity_id) as commodities_impacted,
                SUM(s.units_short) as units_short
         FROM KPI_STOCKOUT s
-        GROUP BY s.county
-        ORDER BY stockout_days DESC
+        JOIN DIM_FACILITY f ON f.facility_id = s.facility_id
+        JOIN DIM_COMMODITY c ON c.commodity_id = s.commodity_id
+        WHERE 1=1
+    """
+    if county != "ALL":
+        q += f" AND s.county = '{county}'"
+    if category != "ALL":
+        q += f" AND c.category = '{category}'"
+    if tier != "ALL":
+        q += f" AND f.facility_size_tier = '{tier}'"
+        
+    q += f" GROUP BY location_name ORDER BY stockout_days DESC"
+    df = pd.read_sql(q, conn)
+    conn.close()
+    return df
+
+
+def get_facility_locations(county: str = "ALL", category: str = "ALL", tier: str = "ALL") -> pd.DataFrame:
+    """Fetches facility coordinates and attributes for geospatial mapping with multi-filter support."""
+    conn = get_connection()
+    
+    where_clauses = ["f.latitude IS NOT NULL", "f.longitude IS NOT NULL"]
+    if county != "ALL":
+        where_clauses.append(f"f.county = '{county}'")
+    if tier != "ALL":
+        where_clauses.append(f"f.facility_size_tier = '{tier}'")
+        
+    sout_where = "1=1"
+    if category != "ALL":
+        sout_where += f" AND s.category = '{category}'"
+        
+    where_str = " AND ".join(where_clauses)
+    
+    q = f"""
+        SELECT f.facility_id, f.facility_name, f.county, f.sub_county, f.facility_type,
+               f.facility_level, f.facility_size_tier, f.latitude, f.longitude, 
+               f.bed_capacity, f.average_daily_patient_visits,
+               COALESCE(SUM(s.stockout_days), 0) as total_stockout_days,
+               COALESCE(SUM(s.units_short), 0) as total_units_short,
+               COUNT(DISTINCT s.commodity_id) as commodities_short_count
+        FROM DIM_FACILITY f
+        LEFT JOIN (
+            SELECT facility_id, commodity_id, stockout_days, units_short, category 
+            FROM KPI_STOCKOUT s 
+            WHERE {sout_where}
+        ) s ON s.facility_id = f.facility_id
+        WHERE {where_str}
+        GROUP BY f.facility_id 
+        ORDER BY total_stockout_days DESC
+    """
+    df = pd.read_sql(q, conn)
+    conn.close()
+    return df
+
+
+def get_warehouse_locations() -> pd.DataFrame:
+    """Fetches KEMSA central and regional supply depot locations for network mapping."""
+    conn = get_connection()
+    df = pd.read_sql("""
+        SELECT warehouse_id, warehouse_name, region, county, latitude, longitude,
+               storage_capacity_units, warehouse_status
+        FROM DIM_WAREHOUSE
+        WHERE latitude IS NOT NULL AND longitude IS NOT NULL
+        ORDER BY storage_capacity_units DESC
     """, conn)
     conn.close()
     return df
 
 
-def get_facility_locations(county: str = "ALL") -> pd.DataFrame:
-    """Fetches facility coordinates and attributes for geospatial mapping."""
+def get_facility_detail_stats(facility_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves deep-dive operational, stockout, expiry, and redistribution intelligence for a selected facility."""
     conn = get_connection()
-    q = """
-        SELECT f.facility_id, f.facility_name, f.county, f.sub_county, f.facility_type,
-               f.facility_size_tier, f.latitude, f.longitude, f.average_daily_patient_visits,
-               COALESCE(SUM(s.stockout_days), 0) as total_stockout_days
-        FROM DIM_FACILITY f
-        LEFT JOIN KPI_STOCKOUT s ON s.facility_id = f.facility_id
-        WHERE f.latitude IS NOT NULL AND f.longitude IS NOT NULL
-    """
-    if county != "ALL":
-        q += f" AND f.county = '{county}'"
-    q += " GROUP BY f.facility_id ORDER BY total_stockout_days DESC"
-    df = pd.read_sql(q, conn)
+    fac = pd.read_sql(f"SELECT * FROM DIM_FACILITY WHERE facility_id = '{facility_id}'", conn)
+    if fac.empty:
+        conn.close()
+        return None
+    info = fac.iloc[0].to_dict()
+    facility_name = info.get("facility_name", "")
+
+    # Stockouts breakdown
+    stockouts = pd.read_sql(f"""
+        SELECT commodity_name, category, SUM(stockout_days) as stockout_days, 
+               SUM(units_short) as units_short, AVG(avg_days_of_stock) as avg_dos,
+               MAX(orders_delayed) as orders_delayed
+        FROM KPI_STOCKOUT 
+        WHERE facility_id = '{facility_id}'
+        GROUP BY commodity_name, category
+        ORDER BY stockout_days DESC
+    """, conn)
+
+    # Expiry wastage
+    expiry = pd.read_sql(f"""
+        SELECT commodity_name, SUM(expired_units) as expired_units, 
+               SUM(wastage_value_kes) as wastage_value_kes,
+               SUM(approaching_expiry) as approaching_expiry_batches
+        FROM KPI_EXPIRY 
+        WHERE facility_id = '{facility_id}'
+        GROUP BY commodity_name
+        ORDER BY wastage_value_kes DESC
+    """, conn)
+
+    # AI Redistribution chains (incoming & outgoing)
+    redist_out = pd.read_sql(f"""
+        SELECT commodity_name, destination_facility_name as partner_facility, destination_county as partner_county,
+               total_recommended_units, avg_distance_km, total_transport_cost, 'SURPLUS DONOR' as role
+        FROM KPI_REDISTRIBUTION_CHAINS
+        WHERE source_facility_id = '{facility_id}' OR source_facility_name = '{facility_name}'
+    """, conn)
+
+    redist_in = pd.read_sql(f"""
+        SELECT commodity_name, source_facility_name as partner_facility, source_county as partner_county,
+               total_recommended_units, avg_distance_km, total_transport_cost, 'SHORTAGE RECIPIENT' as role
+        FROM KPI_REDISTRIBUTION_CHAINS
+        WHERE destination_facility_id = '{facility_id}' OR destination_facility_name = '{facility_name}'
+    """, conn)
+
+    redist = pd.concat([redist_out, redist_in], ignore_index=True)
     conn.close()
-    return df
+
+    return {
+        "info": info,
+        "stockouts": stockouts,
+        "expiry": expiry,
+        "redistribution": redist,
+        "total_stockout_days": int(stockouts["stockout_days"].sum()) if not stockouts.empty else 0,
+        "total_units_short": int(stockouts["units_short"].sum()) if not stockouts.empty else 0,
+        "total_wastage_kes": float(expiry["wastage_value_kes"].sum()) if not expiry.empty else 0.0,
+        "approaching_batches": int(expiry["approaching_expiry_batches"].sum()) if not expiry.empty else 0,
+        "total_transfers_count": len(redist)
+    }
 
 
 def get_redistribution_recommendations(county: str = "ALL", category: str = "ALL", top_n: int = 50) -> pd.DataFrame:
