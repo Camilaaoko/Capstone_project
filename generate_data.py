@@ -984,12 +984,16 @@ class SupplyChainGenerator:
                         dests.append({"fid": fid, "closing": closing, "expected": expected,
                                       "dofs": mn_dofs, "need": need, "date": dt})
                 for s in srcs:
+                    sf = self.facilities_by_id[s["fid"]]
+                    candidate_dests = []
                     for d in dests:
                         if s["fid"] == d["fid"]:
                             continue
-                        sf = self.facilities_by_id[s["fid"]]
                         df = self.facilities_by_id[d["fid"]]
                         dist = haversine_km(sf["latitude"], sf["longitude"], df["latitude"], df["longitude"])
+                        candidate_dests.append((dist, d))
+                    candidate_dests.sort(key=lambda x: x[0])
+                    for dist, d in candidate_dests[:6]:
                         recommended = min(s["releasable"], d["need"])
                         recommended = float(math.ceil(recommended / pack) * pack)
                         if recommended > s["releasable"]:
@@ -1028,9 +1032,9 @@ class SupplyChainGenerator:
                 if key not in self.profiles or m >= len(self.profiles[key]):
                     continue
                 dt, _, _, _, _, _, _ = self.profiles[key][m]
-                for i in range(0, min(len(self.facilities), 60), 4):
+                for i in range(0, min(len(self.facilities), 30), 6):
                     src = self.facilities[i]
-                    dst = self.facilities[(i + 2) % min(len(self.facilities), 60)]
+                    dst = self.facilities[(i + 2) % min(len(self.facilities), 30)]
                     s_key = (cid, src["facility_id"])
                     d_key = (cid, dst["facility_id"])
                     if s_key not in self.profiles or d_key not in self.profiles:

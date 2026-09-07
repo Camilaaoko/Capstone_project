@@ -14,7 +14,12 @@ from dashboard.views.login_page import render_login_page
 from dashboard.views.dashboard_view import render_dashboard_view
 from dashboard.views.executive_view import render_executive_view
 from dashboard.views.county_view import render_county_view, render_facility_dossier_panel
-from dashboard.views.facility_view import render_facility_view
+from dashboard.views.facility_view import (
+    render_facility_view,
+    create_facility_dos_figure,
+    create_facility_summary_cards,
+    create_fefo_batch_table
+)
 from dashboard.views.redistribution_view import render_redistribution_view
 from dashboard.data_service import (
     get_executive_kpis,
@@ -278,19 +283,26 @@ def register_callbacks(app: dash.Dash):
         if click_data and "points" in click_data and len(click_data["points"]) > 0:
             pt = click_data["points"][0]
             customdata = pt.get("customdata")
-            if customdata and len(customdata) > 0:
-                facility_id = customdata[0]
-                return render_facility_dossier_panel(facility_id=facility_id, county=county, category=category, tier=tier, theme=theme)
+            selected_id = None
+            if customdata is not None:
+                if isinstance(customdata, (list, tuple)) and len(customdata) > 0:
+                    selected_id = customdata[0]
+                elif isinstance(customdata, str):
+                    selected_id = customdata
+            
+            if selected_id:
+                return render_facility_dossier_panel(facility_id=str(selected_id), county=county, category=category, tier=tier, theme=theme)
 
         return render_facility_dossier_panel(facility_id=None, county=county, category=category, tier=tier, theme=theme)
 
     # -------------------------------------------------------------------------
-    # 7. Update Facility Drilldown (DOS and Batches) when facility dropdown or theme changes
+    # 7. Update Facility Drilldown (DOS, Batches, KPIs) when facility dropdown or theme changes
     # -------------------------------------------------------------------------
     @app.callback(
         [
             Output("facility-dos-graph", "figure"),
-            Output("facility-batch-table-container", "children")
+            Output("facility-batch-table-container", "children"),
+            Output("facility-summary-cards-container", "children")
         ],
         [
             Input("facility-selector-dropdown", "value"),
@@ -299,72 +311,15 @@ def register_callbacks(app: dash.Dash):
         prevent_initial_call=True
     )
     def update_facility_drilldown(facility_id, theme_data):
-        if not facility_id:
-            return go.Figure(), html.P("No facility selected.")
-
         theme = theme_data if theme_data in ["light", "dark"] else "light"
-        is_dark = theme == "dark"
-        text_color = "#FFFFFF" if is_dark else "#000000"
-        grid_color = "rgba(255, 255, 255, 0.10)" if is_dark else "#E2E8F0"
-        plot_bg = "#1E293B" if is_dark else "#FFFFFF"
+        if not facility_id:
+            return go.Figure(), html.P("No facility selected."), html.Div()
 
-        # Inventory DOS
-        df_inv = get_facility_inventory_status(facility_id)
-        if not df_inv.empty:
-            df_inv = df_inv.sort_values("avg_days_of_stock")
-            fig_dos = px.bar(
-                df_inv.head(20),
-                x="avg_days_of_stock",
-                y="commodity_name",
-                orientation="h",
-                color="stock_status",
-                color_discrete_map={
-                    "STOCKOUT": "#EF4444",
-                    "CRITICAL": "#F97316",
-                    "LOW": "#F59E0B",
-                    "NORMAL": "#10B981",
-                    "OVERSTOCKED": "#6366F1"
-                },
-                title=f"<b>Commodity Days-of-Stock (DOS) & Safety Threshold Status</b>",
-                labels={"avg_days_of_stock": "Average Days of Stock", "commodity_name": "Commodity", "stock_status": "Status"}
-            )
-            fig_dos.update_layout(
-                font=dict(family="Plus Jakarta Sans, Inter, sans-serif", color=text_color, size=12),
-                paper_bgcolor="rgba(0,0,0,0)",
-                plot_bgcolor=plot_bg,
-                margin=dict(l=20, r=20, t=40, b=20),
-                height=400,
-                xaxis=dict(gridcolor=grid_color, zerolinecolor=grid_color, color=text_color, tickfont=dict(color=text_color)),
-                yaxis=dict(gridcolor=grid_color, zerolinecolor=grid_color, color=text_color, tickfont=dict(color=text_color))
-            )
-        else:
-            fig_dos = go.Figure().add_annotation(text="No Inventory Data for Selected Facility", showarrow=False)
+        fig_dos = create_facility_dos_figure(facility_id, theme=theme)
+        batch_table = create_fefo_batch_table(facility_id, theme=theme)
+        summary_cards = create_facility_summary_cards(facility_id, theme=theme)
 
-        # Batch Expiry
-        df_batches = get_facility_batch_expiry(facility_id)
-        if not df_batches.empty:
-            batch_table = dbc.Table.from_dataframe(
-                df_batches.head(20).rename(columns={
-                    "batch_number": "Batch No",
-                    "commodity_name": "Commodity",
-                    "category": "Category",
-                    "initial_quantity": "Initial Qty",
-                    "remaining_quantity": "Remaining Qty",
-                    "manufacturing_date": "Mfg Date",
-                    "expiry_date": "Expiry Date",
-                    "batch_status": "Batch Status",
-                    "days_to_expiry_at_end": "Days to Expiry"
-                }),
-                striped=True,
-                bordered=False,
-                hover=True,
-                responsive=True,
-                className="table align-middle mb-0 font-sans"
-            )
-        else:
-            batch_table = html.P("No active batches found for this facility.", className="text-muted p-3 mb-0")
-
-        return fig_dos, batch_table
+        return fig_dos, batch_table, summary_cards
     # Export Redistribution Manifest as CSV
     @app.callback(
         Output("download-redistribution-csv", "data"),

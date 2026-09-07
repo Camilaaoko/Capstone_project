@@ -11,7 +11,8 @@ from dashboard.data_service import (
     get_county_summary,
     get_facility_locations,
     get_warehouse_locations,
-    get_facility_detail_stats
+    get_facility_detail_stats,
+    get_warehouse_detail_stats
 )
 
 
@@ -65,7 +66,9 @@ def create_kenya_map_figure(county: str = "ALL", category: str = "ALL", tier: st
                 f"<b>🏢 {r['warehouse_name']}</b><br>"
                 f"Region: {r['region']} ({r['county']} County)<br>"
                 f"Storage Capacity: {cap_str}<br>"
-                f"Status: {r['warehouse_status']}<extra></extra>"
+                f"Status: {r['warehouse_status']}<br>"
+                f"<span style='color:#F59E0B; font-weight:bold;'>👉 Click depot marker to load depot dossier</span>"
+                f"<extra></extra>"
             )
             
         fig.add_trace(go.Scattermap(
@@ -73,9 +76,10 @@ def create_kenya_map_figure(county: str = "ALL", category: str = "ALL", tier: st
             lon=df_wh["longitude"],
             mode="markers+text",
             marker=dict(
-                size=15,
+                size=16,
                 color="#F59E0B"
             ),
+            customdata=df_wh[["warehouse_id", "warehouse_name", "region", "county"]].values,
             text=df_wh["warehouse_name"].apply(lambda x: "📦 " + str(x).replace(" Regional Warehouse", "").replace(" National Central Warehouse", "")),
             textposition="top right",
             textfont=dict(size=10, color="#FFFFFF" if is_dark else "#1E293B", family="Plus Jakarta Sans, sans-serif"),
@@ -188,7 +192,7 @@ def render_facility_dossier_panel(facility_id: Optional[str] = None, county: str
         total_sout = df_facs["total_stockout_days"].sum() if not df_facs.empty else 0
         facs_with_sout = len(df_facs[df_facs["total_stockout_days"] > 0]) if not df_facs.empty else 0
         
-        scope_title = f"{county} County" if county != "ALL" else "Kenya National Overview"
+        scope_title = f"{county} County" if county != "ALL" else "Kenya National Overview (47 Counties)"
         
         return dbc.Card([
             dbc.CardHeader(
@@ -245,6 +249,231 @@ def render_facility_dossier_panel(facility_id: Optional[str] = None, county: str
                 ])
             ], className="p-3")
         ], className="kemsa-card shadow-sm h-100")
+
+    # Warehouse Depot Tapped
+    if str(facility_id).startswith("WH"):
+        wh_stats = get_warehouse_detail_stats(facility_id)
+        if wh_stats and wh_stats.get("info"):
+            w_info = wh_stats["info"]
+            orders = wh_stats.get("orders", {})
+            return dbc.Card([
+                dbc.CardHeader(
+                    html.Div([
+                        html.Div([
+                            html.I(className="bi bi-box-seam text-warning me-2 fs-5"),
+                            html.Span(w_info.get("warehouse_name", "KEMSA Depot"), className="fw-bold fs-6 text-truncate", style={"maxWidth": "230px"}),
+                        ], className="d-flex align-items-center"),
+                        dbc.Button(
+                            [html.I(className="bi bi-arrow-counterclockwise me-1"), "Reset"],
+                            id={"type": "btn-reset-dossier", "index": 0},
+                            size="sm",
+                            color="outline-secondary",
+                            className="py-0 px-2 small"
+                        )
+                    ], className="d-flex justify-content-between align-items-center"),
+                    className="py-2 px-3 border-bottom bg-transparent"
+                ),
+                dbc.CardBody([
+                    html.Div([
+                        dbc.Badge(f"{w_info.get('region', '')} Region", color="warning", className="me-1 px-2 py-1"),
+                        dbc.Badge(f"{w_info.get('county', '')} Hub", color="primary", className="me-1 px-2 py-1"),
+                        dbc.Badge(f"{w_info.get('warehouse_status', 'ACTIVE')}", color="success", className="px-2 py-1")
+                    ], className="d-flex flex-wrap gap-1 mb-3"),
+                    
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div([
+                                html.Span("Storage Capacity", className="small text-muted d-block", style={"fontSize": "0.72rem"}),
+                                html.Span(f"{float(w_info.get('storage_capacity_units', 0)):,.0f}", className="fw-bold text-warning fs-6"),
+                            ], className="p-2 rounded-2 text-center", style={"background": bg_subtle})
+                        ], xs=6, className="mb-2"),
+                        dbc.Col([
+                            html.Div([
+                                html.Span("Local Facilities Served", className="small text-muted d-block", style={"fontSize": "0.72rem"}),
+                                html.Span(f"{wh_stats.get('facilities_served', 0)} Facilities", className="fw-bold text-info fs-6"),
+                            ], className="p-2 rounded-2 text-center", style={"background": bg_subtle})
+                        ], xs=6, className="mb-2"),
+                    ]),
+                    
+                    dbc.Row([
+                        dbc.Col([
+                            html.Div([
+                                html.Span("Orders Fulfilled", className="small text-muted d-block", style={"fontSize": "0.7rem"}),
+                                html.Span(f"{orders.get('total_orders', 0):,}", className="fw-bolder text-primary fs-6"),
+                            ], className="p-2 rounded-2 text-center border-start border-3 border-primary", style={"background": bg_subtle})
+                        ], xs=6, className="mb-2"),
+                        dbc.Col([
+                            html.Div([
+                                html.Span("Units Dispatched", className="small text-muted d-block", style={"fontSize": "0.7rem"}),
+                                html.Span(f"{orders.get('total_qty_fulfilled', 0):,}", className="fw-bolder text-success fs-6"),
+                            ], className="p-2 rounded-2 text-center border-start border-3 border-success", style={"background": bg_subtle})
+                        ], xs=6, className="mb-2"),
+                    ])
+                ], className="p-3")
+            ], className="kemsa-card shadow-sm h-100")
+
+    # Specific Facility Tapped
+    stats = get_facility_detail_stats(facility_id)
+    if not stats or not stats.get("info"):
+        return html.Div("Facility data not found.", className="p-3 text-muted")
+        
+    info = stats["info"]
+    stockouts_df = stats["stockouts"]
+    expiry_df = stats["expiry"]
+    redist_df = stats["redistribution"]
+    
+    # Header badges
+    level_badge = dbc.Badge(f"{info.get('facility_level', 'Health Facility')}", color="primary", className="me-1 px-2 py-1")
+    tier_badge = dbc.Badge(f"{info.get('facility_size_tier', 'Tier')} Tier", color="info", className="me-1 px-2 py-1")
+    county_badge = dbc.Badge(f"{info.get('county', '')} County", color="secondary", className="me-1 px-2 py-1")
+    
+    # Shortages list/table
+    shortages_view = []
+    if not stockouts_df.empty:
+        shortages_rows = []
+        for _, row in stockouts_df.head(4).iterrows():
+            shortages_rows.append(
+                html.Tr([
+                    html.Td([
+                        html.Span(row["commodity_name"], className="fw-semibold small d-block"),
+                        html.Span(str(row["category"]).replace("_", " ").title(), className="text-muted", style={"fontSize": "0.72rem"})
+                    ]),
+                    html.Td(f"{int(row['stockout_days'])}d", className="text-danger fw-bold small text-end"),
+                    html.Td(f"{int(row['units_short']):,}", className="text-warning fw-bold small text-end"),
+                ])
+            )
+        shortages_view = dbc.Table([
+            html.Thead(html.Tr([
+                html.Th("Deficit Item", className="small text-muted py-1"),
+                html.Th("Stockout", className="small text-muted py-1 text-end"),
+                html.Th("Units Short", className="small text-muted py-1 text-end"),
+            ])),
+            html.Tbody(shortages_rows)
+        ], hover=True, responsive=True, size="sm", className="mb-0")
+    else:
+        shortages_view = html.Div([
+            html.I(className="bi bi-check-circle-fill text-success me-2"),
+            html.Span("Zero Active Stockouts Reported", className="small text-success fw-semibold")
+        ], className="p-2 text-center rounded-2", style={"background": bg_subtle})
+
+    # AI Redistribution section
+    redist_view = []
+    if not redist_df.empty:
+        r_items = []
+        for _, r in redist_df.head(2).iterrows():
+            is_donor = r["role"] == "SURPLUS DONOR"
+            arrow_icon = "bi bi-arrow-up-right-circle-fill text-primary" if is_donor else "bi bi-arrow-down-left-circle-fill text-success"
+            role_text = f"Supplying {r['partner_facility']}" if is_donor else f"Receiving from {r['partner_facility']}"
+            
+            # Safe formatting for units and distance
+            units_val = r.get("total_recommended_units")
+            units_str = f"{int(float(units_val)):,}" if units_val is not None and not pd.isna(units_val) else "0"
+            dist_val = r.get("avg_distance_km")
+            dist_str = f"{float(dist_val):.1f} km" if dist_val is not None and not pd.isna(dist_val) else "Regional"
+            
+            r_items.append(
+                html.Div([
+                    html.Div([
+                        html.I(className=f"{arrow_icon} me-2 fs-6"),
+                        html.Span(r["commodity_name"], className="fw-bold small"),
+                    ], className="d-flex align-items-center"),
+                    html.Div([
+                        html.Span(f"{role_text} ({r['partner_county']})", className="text-muted small d-block", style={"fontSize": "0.74rem"}),
+                        html.Span(f"Reallocated: {units_str} units • {dist_str}", className="fw-semibold small text-primary", style={"fontSize": "0.74rem"})
+                    ], className="ps-4")
+                ], className="p-2 mb-1 rounded-2 border", style={"background": bg_subtle})
+            )
+        redist_view = html.Div(r_items)
+    else:
+        redist_view = html.Div([
+            html.Span("No active transfer chains currently routed for this facility.", className="small text-muted")
+        ], className="p-2 rounded-2 text-center", style={"background": bg_subtle})
+
+    return dbc.Card([
+        dbc.CardHeader(
+            html.Div([
+                html.Div([
+                    html.I(className="bi bi-hospital-fill text-primary me-2 fs-5"),
+                    html.Span(info.get("facility_name", "Facility Dossier"), className="fw-bold fs-6 text-truncate", style={"maxWidth": "230px"}),
+                ], className="d-flex align-items-center"),
+                dbc.Button(
+                    [html.I(className="bi bi-arrow-counterclockwise me-1"), "Reset"],
+                    id={"type": "btn-reset-dossier", "index": 0},
+                    size="sm",
+                    color="outline-secondary",
+                    className="py-0 px-2 small"
+                )
+            ], className="d-flex justify-content-between align-items-center"),
+            className="py-2 px-3 border-bottom bg-transparent"
+        ),
+        dbc.CardBody([
+            # Meta tags
+            html.Div([
+                level_badge,
+                tier_badge,
+                county_badge,
+                dbc.Badge(f"{info.get('sub_county', '')}", color="dark" if is_dark else "light", className="text-muted px-2 py-1 border")
+            ], className="d-flex flex-wrap gap-1 mb-2"),
+            
+            # Operational capacity
+            dbc.Row([
+                dbc.Col([
+                    html.Div([
+                        html.Span("Daily Patient Visits", className="small text-muted d-block", style={"fontSize": "0.72rem"}),
+                        html.Span(f"{float(info.get('average_daily_patient_visits', 0)):,.0f}", className="fw-bold text-info fs-6"),
+                    ], className="p-2 rounded-2 text-center", style={"background": bg_subtle})
+                ], xs=6, className="mb-2"),
+                dbc.Col([
+                    html.Div([
+                        html.Span("Bed Capacity", className="small text-muted d-block", style={"fontSize": "0.72rem"}),
+                        html.Span(f"{info.get('bed_capacity', 0)} Beds", className="fw-bold text-primary fs-6"),
+                    ], className="p-2 rounded-2 text-center", style={"background": bg_subtle})
+                ], xs=6, className="mb-2"),
+            ]),
+
+            # 4 KPI Chips
+            dbc.Row([
+                dbc.Col([
+                    html.Div([
+                        html.Span("Stockout Days", className="small text-muted d-block", style={"fontSize": "0.7rem"}),
+                        html.Span(f"{stats['total_stockout_days']} d", className="fw-bolder text-danger fs-6"),
+                    ], className="p-2 rounded-2 text-center border-start border-3 border-danger", style={"background": bg_subtle})
+                ], xs=6, className="mb-2"),
+                dbc.Col([
+                    html.Div([
+                        html.Span("Units Short", className="small text-muted d-block", style={"fontSize": "0.7rem"}),
+                        html.Span(f"{stats['total_units_short']:,}", className="fw-bolder text-warning fs-6"),
+                    ], className="p-2 rounded-2 text-center border-start border-3 border-warning", style={"background": bg_subtle})
+                ], xs=6, className="mb-2"),
+                dbc.Col([
+                    html.Div([
+                        html.Span("Expiry Risk", className="small text-muted d-block", style={"fontSize": "0.7rem"}),
+                        html.Span(f"KES {stats['total_wastage_kes']:,.0f}", className="fw-bolder text-secondary fs-6"),
+                    ], className="p-2 rounded-2 text-center border-start border-3 border-secondary", style={"background": bg_subtle})
+                ], xs=6, className="mb-2"),
+                dbc.Col([
+                    html.Div([
+                        html.Span("AI Transfers", className="small text-muted d-block", style={"fontSize": "0.7rem"}),
+                        html.Span(f"{stats['total_transfers_count']} Chains", className="fw-bolder text-success fs-6"),
+                    ], className="p-2 rounded-2 text-center border-start border-3 border-success", style={"background": bg_subtle})
+                ], xs=6, className="mb-2"),
+            ]),
+
+            # Critical Shortages Table
+            html.Div([
+                html.Span("Top Deficit Commodities:", className="fw-bold small text-uppercase text-muted d-block mb-1", style={"fontSize": "0.75rem"}),
+                shortages_view
+            ], className="mb-2"),
+
+            # AI Redistribution Corridor
+            html.Div([
+                html.Span("AI Redistribution Corridors:", className="fw-bold small text-uppercase text-muted d-block mb-1", style={"fontSize": "0.75rem"}),
+                redist_view
+            ])
+
+        ], className="p-3")
+    ], className="kemsa-card shadow-sm h-100")
+
 
     # Specific Facility Tapped
     stats = get_facility_detail_stats(facility_id)
@@ -423,12 +652,10 @@ def render_county_view(county: str = "ALL", category: str = "ALL", tier: str = "
             title=f"<b>Stockout Severity by {chart_title_scope}</b>",
             labels={"stockout_days": "Stockout Days", "location_name": "Jurisdiction", "facilities_with_stockouts": "Impacted Facilities"}
         )
-        fig_county.update_layout(
-            margin=dict(l=20, r=20, t=40, b=80),
-            **layout,
-            xaxis_tickangle=-45,
-            height=380
-        )
+        county_chart_layout = dict(**layout)
+        county_chart_layout["margin"] = dict(l=20, r=20, t=40, b=80)
+        county_chart_layout["height"] = 380
+        fig_county.update_layout(**county_chart_layout, xaxis_tickangle=-45)
         fig_county.update_traces(textposition="outside")
     else:
         fig_county = go.Figure().add_annotation(text="No Regional Stockout Data Available", showarrow=False)

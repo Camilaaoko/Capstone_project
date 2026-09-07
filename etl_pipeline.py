@@ -474,21 +474,11 @@ class Etl:
         self.kpi_supplier["fill_rate"] = (self.kpi_supplier["quantity_fulfilled"] / self.kpi_supplier["quantity_ordered"]).round(3)
         self.d["KPI_SUPPLIER"] = self.kpi_supplier.sort_values("orders_delayed", ascending=False).reset_index(drop=True)
 
-        labels = self.d["SCENARIO_LABELS"]
-        s3 = labels[labels["scenario_name"] == "S3_REDISTRIBUTION"]
-        pairs = []
-        for _, r in s3.iterrows():
-            cid, role = r["commodity_id"], r["role"]
-            fid = r["facility_id"]
-            partners = s3[(s3["commodity_id"] == cid) & (s3["role"] != role)]["facility_id"].tolist()
-            for p in partners:
-                pairs.append((cid, fid if role == "source" else p, fid if role == "destination" else p))
-        pairs = pd.DataFrame(pairs, columns=["commodity_id", "source_facility_id", "destination_facility_id"]).drop_duplicates()
-        red = self.fact_redistribution[self.fact_redistribution["redistribution_status"] == "RECOMMENDED"]
-        red = red.rename(columns={"source_facility_id": "src", "destination_facility_id": "dst"})
-        chains = pairs.merge(red, left_on=["commodity_id", "source_facility_id", "destination_facility_id"],
-                             right_on=["commodity_id", "src", "dst"], how="left")
-        agg_chain = chains.groupby(["commodity_id", "source_facility_id", "destination_facility_id"]).agg(
+        red = self.fact_redistribution[
+            (self.fact_redistribution["redistribution_status"] == "RECOMMENDED") &
+            (self.fact_redistribution["recommended_quantity"] > 0)
+        ]
+        agg_chain = red.groupby(["commodity_id", "source_facility_id", "destination_facility_id"]).agg(
             recommended_events=("recommended_quantity", "count"),
             total_recommended_units=("recommended_quantity", "sum"),
             avg_distance_km=("distance_km", "mean"),
@@ -499,7 +489,7 @@ class Etl:
                               left_on="source_facility_id", right_on="source_facility_id", how="left")
         agg_chain = agg_chain.merge(fac[["facility_id", "facility_name", "county", "facility_type"]].add_prefix("destination_"),
                                     left_on="destination_facility_id", right_on="destination_facility_id", how="left")
-        agg_chain = agg_chain.merge(com[["commodity_id", "commodity_name", "unit_cost"]], on="commodity_id", how="left")
+        agg_chain = agg_chain.merge(com[["commodity_id", "commodity_name", "category", "unit_cost"]], on="commodity_id", how="left")
         dest_sout = self.kpi_stockout.groupby(["facility_id", "commodity_id"])["stockout_days"].sum().reset_index()
         agg_chain = agg_chain.merge(dest_sout.rename(columns={"stockout_days": "dest_stockout_days", "facility_id": "destination_facility_id"}),
                                     on=["destination_facility_id", "commodity_id"], how="left")

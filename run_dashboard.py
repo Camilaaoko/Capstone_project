@@ -5,6 +5,12 @@ import argparse
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
+
 # Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(PROJECT_ROOT))
@@ -23,7 +29,7 @@ def main():
     # Pre-flight check
     if not DB_PATH.exists():
         print("=" * 70)
-        print("❌ ERROR: Analytics Database not found!")
+        print("[ERROR] Analytics Database not found!")
         print(f"   Missing expected database at: {DB_PATH.resolve()}")
         print("   Please run the ETL pipeline first:")
         print("      python etl_pipeline.py")
@@ -31,9 +37,9 @@ def main():
         sys.exit(1)
 
     print("=" * 70)
-    print("🚀 Starting KEMSA Healthcare Supply Chain Intelligence Dashboard...")
-    print(f"📍 Database: {DB_PATH.resolve()}")
-    print(f"🌐 Dashboard URL: http://{args.host}:{args.port}/")
+    print("Starting KEMSA Healthcare Supply Chain Intelligence Dashboard...")
+    print(f"Database: {DB_PATH.resolve()}")
+    print(f"Dashboard URL: http://{args.host}:{args.port}/")
     print("=" * 70)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
@@ -41,4 +47,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 

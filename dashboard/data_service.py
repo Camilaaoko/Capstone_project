@@ -293,6 +293,41 @@ def get_warehouse_locations() -> pd.DataFrame:
     return df
 
 
+def get_warehouse_detail_stats(warehouse_id: str) -> Optional[Dict[str, Any]]:
+    """Retrieves operational and supply network statistics for a selected KEMSA depot."""
+    conn = get_connection()
+    wh = pd.read_sql("SELECT * FROM DIM_WAREHOUSE WHERE warehouse_id = ?", conn, params=(warehouse_id,))
+    if wh.empty:
+        conn.close()
+        return None
+    info = wh.iloc[0].to_dict()
+    w_key = info.get("warehouse_key")
+    
+    # Count facilities in region/county
+    fac_count = pd.read_sql(
+        "SELECT COUNT(*) as c FROM DIM_FACILITY WHERE county = ?", 
+        conn, params=(info.get("county", ""),)
+    )['c'].iloc[0]
+    
+    orders_stat = pd.read_sql("""
+        SELECT COUNT(*) as total_orders, 
+               COALESCE(SUM(quantity_ordered), 0) as total_qty_ordered,
+               COALESCE(SUM(quantity_fulfilled), 0) as total_qty_fulfilled,
+               COALESCE(SUM(CASE WHEN order_status = 'DELAYED' THEN 1 ELSE 0 END), 0) as delayed_orders
+        FROM FACT_ORDERS
+        WHERE warehouse_key = ?
+    """, conn, params=(w_key,))
+    
+    conn.close()
+    return {
+        "info": info,
+        "facilities_served": int(fac_count),
+        "orders": orders_stat.iloc[0].to_dict() if not orders_stat.empty else {}
+    }
+
+
+
+
 def get_facility_detail_stats(facility_id: str) -> Optional[Dict[str, Any]]:
     """Retrieves deep-dive operational, stockout, expiry, and redistribution intelligence for a selected facility."""
     conn = get_connection()
@@ -360,22 +395,21 @@ def get_redistribution_recommendations(county: str = "ALL", category: str = "ALL
     """Fetches recommended redistribution transfer events and chains."""
     conn = get_connection()
     q = """
-        SELECT r.commodity_name, r.source_facility_name, r.source_county,
+        SELECT r.commodity_name, r.category, r.source_facility_name, r.source_county,
                r.destination_facility_name, r.destination_county,
                r.total_recommended_units, r.avg_distance_km, r.total_transport_cost,
                r.dest_stockout_days, r.unit_cost
         FROM KPI_REDISTRIBUTION_CHAINS r
-        JOIN DIM_COMMODITY c ON c.commodity_id = r.commodity_id
-        WHERE 1=1
+        WHERE r.total_recommended_units > 0
     """
     params = []
     if county != "ALL":
         q += " AND (r.source_county = ? OR r.destination_county = ?)"
         params.extend([county, county])
     if category != "ALL":
-        q += " AND c.category = ?"
+        q += " AND r.category = ?"
         params.append(category)
-    q += f" ORDER BY r.dest_stockout_days DESC, r.total_recommended_units DESC LIMIT {int(top_n)}"
+    q += f" ORDER BY r.total_recommended_units DESC, r.dest_stockout_days DESC LIMIT {int(top_n)}"
     df = pd.read_sql(q, conn, params=params)
     conn.close()
     return df
@@ -406,28 +440,58 @@ def get_savings_comparison(county: str = "ALL", category: str = "ALL", top_n: in
 
 
 def get_facility_inventory_status(facility_id: str) -> pd.DataFrame:
-    """Fetches current inventory levels and days of stock for a specific facility."""
+    """Fetches current inventory levels, safety thresholds, and days of stock for a specific facility."""
     conn = get_connection()
+    cur = conn.cursor()
+    cur.execute("SELECT facility_key FROM DIM_FACILITY WHERE facility_id = ?", (facility_id,))
+    row = cur.fetchone()
+    if not row:
+        conn.close()
+        return pd.DataFrame()
+    f_key = row[0]
+
+    cur.execute("SELECT MAX(date_key) FROM FACT_INVENTORY WHERE facility_key = ?", (f_key,))
+    max_date_row = cur.fetchone()
+    max_date = max_date_row[0] if max_date_row and max_date_row[0] else 20251231
+
     q = """
         SELECT c.commodity_name, c.category,
-               AVG(i.closing_stock) as avg_closing_stock,
-               AVG(i.days_of_stock) as avg_days_of_stock,
-               i.stock_status,
-               c.minimum_stock_level, c.maximum_stock_level, c.safety_stock_days
+               ROUND(i.closing_stock, 0) as closing_stock,
+               ROUND(i.closing_stock, 0) as avg_closing_stock,
+               ROUND(i.days_of_stock, 1) as days_of_stock,
+               ROUND(i.days_of_stock, 1) as avg_days_of_stock,
+               c.safety_stock_days,
+               c.minimum_stock_level,
+               c.maximum_stock_level,
+               CASE 
+                   WHEN i.closing_stock <= 0 OR i.days_of_stock <= 0 THEN 'STOCKOUT'
+                   WHEN i.days_of_stock <= c.safety_stock_days THEN 'CRITICAL'
+                   WHEN i.days_of_stock <= c.safety_stock_days * 2 THEN 'LOW'
+                   WHEN i.days_of_stock <= c.safety_stock_days * 6 THEN 'NORMAL'
+                   ELSE 'OVERSTOCKED'
+               END as stock_status,
+               ROUND(avg_tab.avg_dos, 1) as historical_avg_dos,
+               avg_tab.total_stockout_days
         FROM FACT_INVENTORY i
-        JOIN DIM_FACILITY f ON f.facility_key = i.facility_key
         JOIN DIM_COMMODITY c ON c.commodity_key = i.commodity_key
-        WHERE f.facility_id = ?
-        GROUP BY c.commodity_name, i.stock_status
-        ORDER BY avg_days_of_stock ASC
+        JOIN (
+            SELECT commodity_key, 
+                   AVG(days_of_stock) as avg_dos,
+                   SUM(CASE WHEN stock_status = 'STOCKOUT' THEN 1 ELSE 0 END) as total_stockout_days
+            FROM FACT_INVENTORY
+            WHERE facility_key = ?
+            GROUP BY commodity_key
+        ) avg_tab ON avg_tab.commodity_key = i.commodity_key
+        WHERE i.facility_key = ? AND i.date_key = ?
+        ORDER BY i.days_of_stock ASC
     """
-    df = pd.read_sql(q, conn, params=(facility_id,))
+    df = pd.read_sql(q, conn, params=(f_key, f_key, max_date))
     conn.close()
     return df
 
 
 def get_facility_batch_expiry(facility_id: str) -> pd.DataFrame:
-    """Fetches batch details and expiry status for a facility."""
+    """Fetches active and at-risk batch details prioritized by FEFO (First Expiry First Out)."""
     conn = get_connection()
     q = """
         SELECT b.batch_id as batch_number, c.commodity_name, c.category,
@@ -438,7 +502,15 @@ def get_facility_batch_expiry(facility_id: str) -> pd.DataFrame:
         JOIN DIM_FACILITY f ON f.facility_key = b.facility_key
         JOIN DIM_COMMODITY c ON c.commodity_key = b.commodity_key
         WHERE f.facility_id = ?
-        ORDER BY b.expiry_date ASC
+        ORDER BY 
+            CASE 
+                WHEN b.remaining_quantity > 0 AND b.days_to_expiry_at_end BETWEEN 0 AND 90 THEN 1
+                WHEN b.remaining_quantity > 0 AND b.batch_status = 'APPROACHING_EXPIRY' THEN 2
+                WHEN b.remaining_quantity > 0 THEN 3
+                WHEN b.batch_status = 'EXPIRED' THEN 4
+                ELSE 5
+            END ASC,
+            b.expiry_date ASC
     """
     df = pd.read_sql(q, conn, params=(facility_id,))
     conn.close()
