@@ -87,14 +87,11 @@ def run_demand_forecasting(n_pairs=100):
     print("DEMAND FORECASTING")
     print("=" * 60)
 
-    facts = load_facts()
-    dims = load_dims()
     pairs = sample_pairs(min(MAX_SAMPLE_PAIRS, 500))
 
     print(f"Building training data for {len(pairs)} pairs...")
     from analytics_module.features.engineering import build_training_dataset
-    train_data = build_training_dataset(pairs, facts["FACT_INVENTORY"], facts["FACT_CONSUMPTION"],
-                                         sample_pairs=50)
+    train_data = build_training_dataset(pairs, sample_pairs=min(n_pairs, 50))
 
     if len(train_data) == 0:
         print("  No training data available")
@@ -104,15 +101,33 @@ def run_demand_forecasting(n_pairs=100):
 
     from analytics_module.models.forecasting import prepare_features, train_demand_model, evaluate_forecast
     X, y, feat_cols = prepare_features(train_data)
-    split = int(len(X) * 0.8)
-    X_train, X_test = X.iloc[:split], X.iloc[split:]
-    y_train, y_test = y.iloc[:split], y.iloc[split:]
+
+    # Temporal train/test split across dates
+    if "date" in train_data.columns:
+        dates = train_data["date"].sort_values().unique()
+        split_date = dates[int(len(dates) * 0.8)]
+        train_mask = train_data["date"] < split_date
+        test_mask = train_data["date"] >= split_date
+    elif "date_key" in train_data.columns:
+        dates = train_data["date_key"].sort_values().unique()
+        split_date = dates[int(len(dates) * 0.8)]
+        train_mask = train_data["date_key"] < split_date
+        test_mask = train_data["date_key"] >= split_date
+    else:
+        split = int(len(train_data) * 0.8)
+        train_mask = train_data.index < split
+        test_mask = train_data.index >= split
+
+    X_train, X_test = X[train_mask], X[test_mask]
+    y_train, y_test = y[train_mask], y[test_mask]
 
     print("Training LightGBM demand model...")
     model = train_demand_model(X_train, y_train, X_test, y_test)
     metrics = evaluate_forecast(model, X_test, y_test)
 
-    print(f"  MAE: {metrics['mae']:.2f}")
+    print(f"  LightGBM MAE: {metrics['mae']:.2f}")
+    print(f"  Baseline MAE: {metrics['baseline_mae']:.2f}")
+    print(f"  MAE Improvement: {metrics['mae_improvement_pct']:.1f}%")
     print(f"  RMSE: {metrics['rmse']:.2f}")
     print(f"  MAPE: {metrics['mape']:.2%}")
 
@@ -127,12 +142,10 @@ def run_stockout_risk(n_pairs=100):
     print("STOCKOUT RISK MODELLING")
     print("=" * 60)
 
-    facts = load_facts()
     pairs = sample_pairs(min(MAX_SAMPLE_PAIRS, 500))
 
     from analytics_module.features.engineering import build_training_dataset
-    train_data = build_training_dataset(sample_pairs(200), facts["FACT_INVENTORY"], facts["FACT_CONSUMPTION"],
-                                         sample_pairs=50)
+    train_data = build_training_dataset(pairs, sample_pairs=min(n_pairs, 50))
 
     if len(train_data) == 0:
         print("  No training data")
@@ -142,13 +155,29 @@ def run_stockout_risk(n_pairs=100):
                                                          train_risk_model, evaluate_risk_model,
                                                          find_optimal_threshold)
     X, y, feat_cols = prepare_risk_features(train_data, horizon=7)
-    split = int(len(X) * 0.8)
-    X_train, X_test = X.iloc[:split], X.iloc[split:]
-    y_train, y_test = y.iloc[:split], y.iloc[split:]
+
+    # Temporal train/test split across dates
+    if "date" in train_data.columns:
+        dates = train_data["date"].sort_values().unique()
+        split_date = dates[int(len(dates) * 0.8)]
+        train_mask = train_data["date"] < split_date
+        test_mask = train_data["date"] >= split_date
+    elif "date_key" in train_data.columns:
+        dates = train_data["date_key"].sort_values().unique()
+        split_date = dates[int(len(dates) * 0.8)]
+        train_mask = train_data["date_key"] < split_date
+        test_mask = train_data["date_key"] >= split_date
+    else:
+        split = int(len(train_data) * 0.8)
+        train_mask = train_data.index < split
+        test_mask = train_data.index >= split
+
+    X_train, X_test = X[train_mask], X[test_mask]
+    y_train, y_test = y[train_mask], y[test_mask]
 
     print("Training LightGBM stockout risk model...")
     model = train_risk_model(X_train, y_train, X_test, y_test)
-    threshold, _ = find_optimal_threshold(model, X.iloc[split:], y.iloc[split:])
+    threshold, _ = find_optimal_threshold(model, X_test, y_test)
     metrics = evaluate_risk_model(model, X_test, y_test, threshold)
 
     print(f"  AUC: {metrics['auc']:.3f}")

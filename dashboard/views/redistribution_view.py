@@ -77,12 +77,20 @@ def render_redistribution_view(county: str = "ALL", category: str = "ALL"):
             dbc.Col(
                 dbc.Card([
                     dbc.CardHeader([
-                        html.Span("🔄 Active AI Allocation & Inter-Facility Redistribution Transfer Orders", className="fw-bold")
+                        html.Span("🔄 Active AI Allocation & Inter-Facility Redistribution Transfer Orders", className="fw-bold"),
+                        dbc.Button(
+                            [html.I(className="bi bi-download me-2"), "Export Manifest (CSV)"],
+                            id="btn-export-redistribution",
+                            color="success",
+                            size="sm",
+                            className="shadow-sm"
+                        )
                     ], className="bg-white d-flex justify-content-between align-items-center"),
                     dbc.CardBody(chains_table)
                 ], className="shadow-sm border-0 mb-4"),
                 lg=12
             )
-        ])
+        ]),
+        dcc.Download(id="download-redistribution-csv")
     ])
 

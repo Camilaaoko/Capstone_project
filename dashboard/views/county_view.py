@@ -23,7 +23,11 @@ def render_county_view(county: str = "ALL"):
             title="<b>Stockout Days by County (Color = Impacted Facilities Count)</b>",
             labels={"stockout_days": "Stockout Days", "county": "County", "facilities_with_stockouts": "Impacted Facilities"}
         )
-        fig_county.update_layout(margin=dict(l=20, r=20, t=40, b=20), height=380)
+        fig_county.update_layout(
+            margin=dict(l=20, r=20, t=40, b=80),
+            xaxis_tickangle=-45,
+            height=420
+        )
         fig_county.update_traces(textposition="outside")
     else:
         fig_county = go.Figure().add_annotation(text="No County Data", showarrow=False)
@@ -31,23 +35,32 @@ def render_county_view(county: str = "ALL"):
     # 2. Geospatial Facility Distribution Map
     df_loc = get_facility_locations(county=county)
     if not df_loc.empty:
-        fig_map = px.scatter(
+        fig_map = px.scatter_mapbox(
             df_loc,
-            x="longitude",
-            y="latitude",
+            lat="latitude",
+            lon="longitude",
             color="total_stockout_days",
             size="average_daily_patient_visits",
             hover_name="facility_name",
-            hover_data=["county", "sub_county", "facility_type", "facility_size_tier", "total_stockout_days"],
+            hover_data={
+                "county": True,
+                "sub_county": True,
+                "facility_type": True,
+                "facility_size_tier": True,
+                "total_stockout_days": True,
+                "latitude": False,
+                "longitude": False
+            },
             color_continuous_scale="Turbo",
             title="<b>Geospatial Health Facility Network (Size = Daily Visits, Color = Stockout Days)</b>",
-            labels={"longitude": "Longitude", "latitude": "Latitude", "total_stockout_days": "Stockout Days"}
+            labels={"total_stockout_days": "Stockout Days", "average_daily_patient_visits": "Daily Visits"},
+            mapbox_style="carto-positron",
+            zoom=5.5,
+            center={"lat": 0.0236, "lon": 37.9062}
         )
         fig_map.update_layout(
-            margin=dict(l=20, r=20, t=40, b=20),
-            height=380,
-            xaxis=dict(showgrid=True, zeroline=False),
-            yaxis=dict(showgrid=True, zeroline=False)
+            margin=dict(l=10, r=10, t=40, b=10),
+            height=380
         )
     else:
         fig_map = go.Figure().add_annotation(text="No GPS Coordinates Available", showarrow=False)

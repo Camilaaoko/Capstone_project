@@ -1,12 +1,21 @@
-# Python cache
+# Python cache & build
 __pycache__/
 *.py[cod]
 *$py.class
+*.egg-info/
+dist/
+build/
+.eggs/
 
 # Virtual environments
 venv/
 env/
 .venv/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
 
 # Databases
 *.db
@@ -18,13 +27,14 @@ env/
 *.joblib
 *.h5
 
-# Generated Data & Logs (Keep the scripts that generate them, not the output)
+# Generated Data & Logs
 output/
 output_smoke/
+output_quick/
 analytics/*.csv
 analytics_smoke/*.csv
 *.log
-etl_*_log.txt
+etl_*_log*.txt
 full_run_log*.txt
 smoke_log*.txt
 

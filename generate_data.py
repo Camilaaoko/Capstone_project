@@ -20,16 +20,68 @@ START_DATE = date(2024, 1, 1)
 REFERENCE_VISITS = 350.0
 
 COUNTIES = {
-    "Nairobi": {"factor": 1.25, "center": (-1.2921, 36.8219), "subs": ["Westlands", "Langata", "Embakasi", "Kamukunji", "Dagoretti", "Makadara", "Roysambu"]},
+    # Coast Region
     "Mombasa": {"factor": 1.15, "center": (-4.0435, 39.6682), "subs": ["Mvita", "Kisauni", "Nyali", "Changamwe", "Jomvu", "Likoni"]},
-    "Kisumu": {"factor": 1.15, "center": (-0.0917, 34.7680), "subs": ["Kisumu Central", "Kisumu East", "Kisumu West", "Seme", "Nyando", "Muhoroni"]},
-    "Nakuru": {"factor": 1.05, "center": (-0.3031, 36.0800), "subs": ["Nakuru East", "Nakuru West", "Naivasha", "Gilgil", "Bahati", "Rongai"]},
-    "Uasin Gishu": {"factor": 1.05, "center": (0.5143, 35.2698), "subs": ["Soy", "Turbo", "Moiben", "Ainabkoi", "Kesses", "Kapseret"]},
-    "Kiambu": {"factor": 1.10, "center": (-1.1714, 36.8358), "subs": ["Thika", "Ruiru", "Gatundu North", "Githunguri", "Kikuyu", "Limuru"]},
-    "Machakos": {"factor": 0.95, "center": (-1.5177, 37.2634), "subs": ["Machakos Town", "Mwala", "Yatta", "Kangundo", "Masinga", "Kathiani"]},
-    "Kilifi": {"factor": 0.95, "center": (-3.5107, 39.9093), "subs": ["Kilifi North", "Kilifi South", "Malindi", "Kaloleni", "Ganze", "Magarini"]},
+    "Kwale": {"factor": 0.90, "center": (-4.1744, 39.4521), "subs": ["Matuga", "Msambweni", "Lungalunga", "Kinango"]},
+    "Kilifi": {"factor": 0.95, "center": (-3.5107, 39.9093), "subs": ["Kilifi North", "Kilifi South", "Malindi", "Kaloleni", "Ganze", "Magarini", "Rabai"]},
+    "Tana River": {"factor": 0.85, "center": (-1.5000, 39.5000), "subs": ["Garsen", "Galole", "Bura"]},
+    "Lamu": {"factor": 0.80, "center": (-2.2686, 40.9006), "subs": ["Lamu West", "Lamu East"]},
+    "Taita Taveta": {"factor": 0.85, "center": (-3.3167, 38.3500), "subs": ["Voi", "Wundanyi", "Mwatate", "Taveta"]},
+
+    # North Eastern Region
+    "Garissa": {"factor": 0.90, "center": (-0.4532, 39.6396), "subs": ["Garissa Township", "Balambala", "Lagdera", "Dadaab", "Fafi", "Ijara"]},
+    "Wajir": {"factor": 0.85, "center": (1.7471, 40.0573), "subs": ["Wajir East", "Wajir West", "Wajir North", "Wajir South", "Tarbaj", "Eldas"]},
+    "Mandera": {"factor": 0.85, "center": (3.9373, 41.8569), "subs": ["Mandera East", "Mandera West", "Mandera South", "Mandera North", "Banissa", "Lafey"]},
+
+    # Eastern Region
+    "Marsabit": {"factor": 0.80, "center": (2.3333, 37.9833), "subs": ["Moyale", "North Horr", "Saku", "Laisamis"]},
+    "Isiolo": {"factor": 0.85, "center": (0.3546, 37.5822), "subs": ["Isiolo", "Merti", "Garbatulla"]},
     "Meru": {"factor": 0.90, "center": (0.0471, 37.6462), "subs": ["Imenti North", "Imenti South", "Imenti Central", "Buuri", "Igembe North", "Tigania"]},
+    "Tharaka-Nithi": {"factor": 0.85, "center": (-0.2965, 37.7289), "subs": ["Chuka", "Igambang'ombe", "Maara", "Tharaka North", "Tharaka South"]},
+    "Embu": {"factor": 0.90, "center": (-0.5312, 37.4555), "subs": ["Manyatta", "Runyenjes", "Mbeere North", "Mbeere South"]},
+    "Kitui": {"factor": 0.90, "center": (-1.3667, 38.0167), "subs": ["Kitui Central", "Kitui Rural", "Kitui East", "Kitui South", "Kitui West", "Mwingi Central"]},
+    "Machakos": {"factor": 0.95, "center": (-1.5177, 37.2634), "subs": ["Machakos Town", "Mwala", "Yatta", "Kangundo", "Masinga", "Kathiani", "Mavoko"]},
+    "Makueni": {"factor": 0.90, "center": (-1.8041, 37.6203), "subs": ["Makueni", "Kaiti", "Kibwezi East", "Kibwezi West", "Kilome", "Mbooni"]},
+
+    # Central Region
+    "Nyandarua": {"factor": 0.85, "center": (-0.1804, 36.5230), "subs": ["Ol Kalou", "Kinangop", "Kipipiri", "Ndaragwa", "Ol Joro Orok"]},
+    "Nyeri": {"factor": 0.95, "center": (-0.4167, 36.9500), "subs": ["Nyeri Town", "Kieni", "Mathira", "Mukurweini", "Othaya", "Tetu"]},
+    "Kirinyaga": {"factor": 0.90, "center": (-0.5000, 37.2833), "subs": ["Kirinyaga Central", "Gichugu", "Mwea", "Ndia"]},
+    "Murang'a": {"factor": 0.90, "center": (-0.7167, 37.1500), "subs": ["Kiharu", "Kangema", "Mathioya", "Kigumo", "Kandara", "Gatanga"]},
+    "Kiambu": {"factor": 1.10, "center": (-1.1714, 36.8358), "subs": ["Thika", "Ruiru", "Gatundu North", "Githunguri", "Kikuyu", "Limuru", "Juja", "Kabete"]},
+
+    # Rift Valley Region
+    "Turkana": {"factor": 0.90, "center": (3.1167, 35.6000), "subs": ["Turkana Central", "Turkana North", "Turkana South", "Turkana West", "Loima"]},
+    "West Pokot": {"factor": 0.85, "center": (1.2333, 35.1167), "subs": ["Kapenguria", "Sigor", "Kacheliba", "Pokot South"]},
+    "Samburu": {"factor": 0.80, "center": (1.2167, 36.9333), "subs": ["Samburu West", "Samburu East", "Samburu North"]},
+    "Trans Nzoia": {"factor": 0.95, "center": (1.0167, 35.0000), "subs": ["Cherangany", "Endebess", "Kiminini", "Kwanza", "Saboti"]},
+    "Uasin Gishu": {"factor": 1.05, "center": (0.5143, 35.2698), "subs": ["Soy", "Turbo", "Moiben", "Ainabkoi", "Kesses", "Kapseret"]},
+    "Elgeyo-Marakwet": {"factor": 0.85, "center": (0.6833, 35.5167), "subs": ["Keiyo North", "Keiyo South", "Marakwet East", "Marakwet West"]},
+    "Nandi": {"factor": 0.90, "center": (0.1833, 35.1000), "subs": ["Aldai", "Chesumei", "Emgwen", "Mosop", "Nandi Hills", "Tinderet"]},
+    "Baringo": {"factor": 0.85, "center": (0.4667, 35.9667), "subs": ["Baringo Central", "Baringo North", "Baringo South", "Eldama Ravine", "Mogotio", "Tiaty"]},
+    "Laikipia": {"factor": 0.90, "center": (0.3606, 36.7820), "subs": ["Laikipia East", "Laikipia North", "Laikipia West"]},
+    "Nakuru": {"factor": 1.05, "center": (-0.3031, 36.0800), "subs": ["Nakuru East", "Nakuru West", "Naivasha", "Gilgil", "Bahati", "Rongai", "Molo", "Njoro"]},
+    "Narok": {"factor": 0.90, "center": (-1.0833, 35.8667), "subs": ["Narok North", "Narok South", "Narok East", "Narok West", "Kilgoris"]},
+    "Kajiado": {"factor": 0.95, "center": (-1.8500, 36.7833), "subs": ["Kajiado Central", "Kajiado East", "Kajiado North", "Kajiado South", "Kajiado West"]},
+    "Kericho": {"factor": 0.90, "center": (-0.3689, 35.2863), "subs": ["Ainamoi", "Belgut", "Bureti", "Kipkelion East", "Kipkelion West", "Soin/Sigowet"]},
+    "Bomet": {"factor": 0.90, "center": (-0.7813, 35.3416), "subs": ["Bomet Central", "Bomet East", "Chepalungu", "Konoin", "Sotik"]},
+
+    # Western Region
+    "Kakamega": {"factor": 1.00, "center": (0.2833, 34.7500), "subs": ["Lurambi", "Ikolomani", "Shinyalu", "Malava", "Mumias East", "Mumias West", "Butere", "Lugari"]},
+    "Vihiga": {"factor": 0.90, "center": (0.0833, 34.7167), "subs": ["Vihiga", "Sabatia", "Hamisi", "Luanda", "Emuhaya"]},
     "Bungoma": {"factor": 0.90, "center": (0.5695, 34.5584), "subs": ["Bungoma Central", "Bungoma East", "Bungoma North", "Bungoma South", "Mt. Elgon", "Webuye"]},
+    "Busia": {"factor": 0.90, "center": (0.4608, 34.1115), "subs": ["Budalangi", "Funyula", "Butula", "Matayos", "Nambale", "Teso North", "Teso South"]},
+
+    # Nyanza Region
+    "Siaya": {"factor": 0.90, "center": (0.0607, 34.2882), "subs": ["Alego Usonga", "Bondo", "Gem", "Rarieda", "Ugenya", "Ugunja"]},
+    "Kisumu": {"factor": 1.15, "center": (-0.0917, 34.7680), "subs": ["Kisumu Central", "Kisumu East", "Kisumu West", "Seme", "Nyando", "Muhoroni", "Nyakach"]},
+    "Homa Bay": {"factor": 0.90, "center": (-0.5273, 34.4571), "subs": ["Homa Bay Town", "Kasipul", "Karachuonyo", "Ndhiwa", "Rangwe", "Suba North", "Suba South"]},
+    "Migori": {"factor": 0.90, "center": (-1.0634, 34.4731), "subs": ["Suna East", "Suna West", "Uriri", "Awendo", "Rongo", "Nyatike", "Kuria East", "Kuria West"]},
+    "Kisii": {"factor": 0.95, "center": (-0.6817, 34.7667), "subs": ["Kitutu Chache", "Nyaribari Chache", "Bonchari", "Bomachoge", "Bobasi", "South Mugirango"]},
+    "Nyamira": {"factor": 0.85, "center": (-0.5633, 34.9358), "subs": ["Nyamira Town", "Borabu", "Manga", "Masaba North"]},
+
+    # Nairobi Metro
+    "Nairobi": {"factor": 1.25, "center": (-1.2921, 36.8219), "subs": ["Westlands", "Langata", "Embakasi", "Kamukunji", "Dagoretti", "Makadara", "Roysambu", "Kasarani", "Starehe", "Kibra"]},
 }
 
 WAREHOUSES = [
@@ -336,18 +388,21 @@ class SupplyChainGenerator:
         fid = 0
         ordered = [
             ("National Referral Hospital", "Nairobi"),
-            ("County Referral Hospital", "Nairobi"),
         ]
+        # 1. Level 5: 1 County Referral Hospital per county (47 counties)
         for c in COUNTIES:
             ordered.append(("County Referral Hospital", c))
-        for c in COUNTIES:
-            for _ in range(3):
+        # 2. Level 4: Sub-County Hospitals (up to 3 per county)
+        for _ in range(3):
+            for c in COUNTIES:
                 ordered.append(("Sub-County Hospital", c))
-        for c in COUNTIES:
-            for _ in range(5):
+        # 3. Level 3: Health Centres (up to 4 per county)
+        for _ in range(4):
+            for c in COUNTIES:
                 ordered.append(("Health Centre", c))
-        for c in COUNTIES:
-            for _ in range(6):
+        # 4. Level 2: Dispensaries (up to 4 per county)
+        for _ in range(4):
+            for c in COUNTIES:
                 ordered.append(("Dispensary", c))
 
         self.scenario_facility_refs = {}
@@ -1245,15 +1300,15 @@ class SupplyChainGenerator:
 def main():
     parser = argparse.ArgumentParser(description="Generate a synthetic healthcare supply-chain dataset.")
     parser.add_argument("--output-dir", default="output", help="Output directory (default: output)")
-    parser.add_argument("--facilities", type=int, default=150, help="Number of facilities (default: 150)")
+    parser.add_argument("--facilities", type=int, default=235, help="Number of facilities (default: 235 across 47 counties)")
     parser.add_argument("--commodities", type=int, default=45, help="Number of commodities (default: 45)")
     parser.add_argument("--months", type=int, default=24, help="Number of months (default: 24)")
     parser.add_argument("--seed", type=int, default=RANDOM_SEED, help="Random seed (default: 42)")
     parser.add_argument("--no-sqlite", action="store_true", help="Skip SQLite database creation")
     args = parser.parse_args()
 
-    if args.facilities > 151:
-        args.facilities = 151
+    if args.facilities > 1000:
+        args.facilities = 1000
     if args.commodities > 45:
         args.commodities = 45
     if args.months > 24:

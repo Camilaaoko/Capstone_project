@@ -51,12 +51,34 @@ def train_demand_model(X_train, y_train, X_val=None, y_val=None, params=None):
     return model
 
 
-def evaluate_forecast(model, X_test, y_test):
+def evaluate_forecast(model, X_test, y_test, baseline_preds=None):
     preds = model.predict(X_test, num_iteration=model.best_iteration)
     mae = mean_absolute_error(y_test, preds)
     rmse = np.sqrt(mean_squared_error(y_test, preds))
     mape = mean_absolute_percentage_error(y_test + 1e-6, preds + 1e-6)
-    return {"mae": mae, "rmse": rmse, "mape": mape, "preds": preds}
+
+    # Compute baseline benchmark (Lag-1 Naive / 7-day Moving Average)
+    if baseline_preds is None:
+        if "quantity_consumed_lag1" in X_test.columns:
+            baseline_preds = X_test["quantity_consumed_lag1"].values
+        elif "quantity_consumed_roll_mean_7" in X_test.columns:
+            baseline_preds = X_test["quantity_consumed_roll_mean_7"].values
+        else:
+            baseline_preds = np.full_like(preds, y_test.mean())
+
+    base_mae = mean_absolute_error(y_test, baseline_preds)
+    base_rmse = np.sqrt(mean_squared_error(y_test, baseline_preds))
+    mae_improvement_pct = max(0.0, (base_mae - mae) / (base_mae + 1e-6) * 100.0)
+
+    return {
+        "mae": mae,
+        "rmse": rmse,
+        "mape": mape,
+        "preds": preds,
+        "baseline_mae": base_mae,
+        "baseline_rmse": base_rmse,
+        "mae_improvement_pct": mae_improvement_pct,
+    }
 
 
 def train_per_pair(pairs_df, inv_df, cons_df, n_pairs=100, save_dir=None):

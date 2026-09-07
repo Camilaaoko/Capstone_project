@@ -1,221 +1,205 @@
-# Healthcare Supply-Chain Intelligence Platform — Synthetic Dataset Generator
+# Healthcare Supply-Chain Intelligence Platform for KEMSA
 
-A fellowship capstone project. This repository generates a **fully synthetic**,
-relational healthcare supply-chain dataset that imitates realistic behaviour for
-Kenya's public health supply chain (KEMSA warehouses, counties, facilities,
-suppliers, orders, shipments, inventory, expiry batches and redistribution
-opportunities).
+An end-to-end, AI-powered healthcare supply-chain intelligence and redistribution platform designed for Kenya's public health logistics network (KEMSA). The platform combines synthetic big-data generation across **all 47 Kenyan counties**, an automated Star-Schema ETL pipeline with query acceleration, predictive machine learning (demand forecasting, stockout risk classification, FEFO expiry tracking), an inventory imbalance optimization engine, and an interactive Dash web application.
 
-> **IMPORTANT DISCLAIMER**
-> All data produced by this generator is **synthetic** — created from statistical
-> models with a fixed random seed. It is **not** real KEMSA operational data, does
-> not contain real patient information, and must not be presented as, or claimed
-> to reproduce, confidential KEMSA records. Prices, names, lead times and
-> facilities are invented for academic research and system development only.
+> [!IMPORTANT]
+> **SYNTHETIC DATA DISCLAIMER**  
+> All data produced by this generator is **synthetic** — created from statistical models with a fixed random seed (`RANDOM_SEED = 42`). It is **not** real KEMSA operational data, does not contain real patient records, and must not be presented as confidential government data. Facilities, coordinates, commodity specs, and prices are designed for academic research, system benchmarking, and demonstration purposes.
 
 ---
 
-## 1. Data architecture
+## 1. System Architecture & Directory Structure
 
 ```
-                    ┌──────────────────────────────────────────────────────────┐
-                    │                      MASTER DATA                        │
-                    │  FACILITIES(150)  KEMSA_WAREHOUSES(6)  SUPPLIERS(12)    │
-                    │  COMMODITIES(45)                    DEMAND_EVENTS(~10)  │
-                    └──────────────────────────────────────────────────────────┘
-                                          │
-        ┌─────────────────────────────────┼──────────────────────────────────┐
-        ▼                                 ▼                                  ▼
- CONSUMPTION                        INVENTORY (daily)                   ORDERS
- (daily, facility×commodity)   ←drives→  (daily balance)    ←placed when→  (reorder point)
-   driven by:                            opening+received                  each order →
-   • facility size                       -issued+adjusted = closing          warehouse + supplier
-   • county factor                       FEFO batch draw-down
-   • commodity seasonality         ┌─────┤ (status: NORMAL/LOW/CRITICAL/
-   • demand events                  │     │  STOCKOUT/OVERSTOCKED)
-   • trend + noise                  ▼     ▼
-                              BATCHES  SHIPMENTS(per order, delays)
-                              (expiry)       │
-                                             ▼
-                              REDISTRIBUTION_EVENTS (network matching:
-                              surplus source → shortage destination)
-                                             │
-                              DATA_QUALITY_ISSUES (controlled noise for a
-                              data-cleaning pipeline demo)
+Capstone_project/
+├── generate_data.py             # 47-County Synthetic Big-Data Generator
+├── etl_pipeline.py              # Extract-Transform-Load Pipeline (Star Schema & SQLite DB)
+├── run_analytics_main.py        # CLI Entrypoint for ML Modeling & Allocation Engine
+├── app_main.py                  # CLI Entrypoint for Interactive Dash Web Application
+├── pyproject.toml               # Python Package Build & Pytest Configuration
+├── requirements.txt             # Python Dependencies
+├── .github/workflows/ci.yml     # GitHub Actions Continuous Integration Pipeline
+│
+├── output/                      # Raw Synthetic CSV Outputs (13 Relational Tables)
+│   ├── FACILITIES.csv           # 235 facilities across all 47 Kenyan counties
+│   ├── COMMODITIES.csv          # 45 essential healthcare commodities
+│   ├── INVENTORY.csv            # ~4.9M–7.7M daily inventory balance records
+│   ├── CONSUMPTION.csv          # ~4.9M–7.7M daily patient consumption records
+│   ├── ORDERS.csv, SHIPMENTS.csv, BATCHES.csv, REDISTRIBUTION_EVENTS.csv ...
+│
+├── analytics/                   # Analytics-Ready Data Warehouse
+│   ├── analytics.db             # Indexed SQLite Database (~1 GB)
+│   ├── DIM_FACILITY.csv, DIM_COMMODITY.csv, DIM_DATE.csv, DIM_SUPPLIER.csv ...
+│   ├── FACT_INVENTORY, FACT_CONSUMPTION, FACT_ORDERS, FACT_BATCHES ...
+│   └── KPI_STOCKOUT, KPI_EXPIRY, KPI_REDISTRIBUTION_CHAINS, KPI_BASELINE_VS_INTELLIGENT ...
+│
+├── analytics_module/            # Machine Learning & Optimization Engine
+│   ├── config.py                # Analytics Paths, Seeds, and Horizons
+│   ├── data/loader.py           # SQL Data Extractors & Stratified Sampling
+│   ├── features/engineering.py  # Lag, Rolling, Trend, and Calendar Feature Transforms
+│   ├── models/
+│   │   ├── forecasting.py       # LightGBM Demand Forecasting with Naive Baselines
+│   │   ├── risk_modelling.py    # Random Forest Stockout & Supply Risk Classifiers
+│   │   ├── predictive.py        # Expiry Risk Scoring & Supplier Delay Predictors
+│   │   └── imbalance.py         # Haversine Geodesic Matching & Budget-Constrained Allocation
+│   ├── reports/figures/         # Generated Publication-Ready Visualization Figures
+│   └── visualization/plots.py   # Seaborn/Matplotlib Chart Generators
+│
+├── dashboard/                   # Interactive Plotly Dash Web Application
+│   ├── app.py                   # Dash Application Factory & Tab Layout
+│   ├── data_service.py          # Parameterized SQL Query Layer with SQLite Indexing
+│   ├── components/              # Navbar, Filter Bar, and Reusable UI Widgets
+│   ├── callbacks/               # Reactive Callbacks & CSV Manifest Downloader
+│   └── views/
+│       ├── executive_view.py    # KEMSA Executive Summary & Financial KPIs
+│       ├── county_view.py       # Nationwide Mapbox Tile Map & County Comparisons
+│       ├── facility_view.py     # Facility Inventory Balances & FEFO Expiry Timeline
+│       └── redistribution_view.py # AI Transfer Matrix & Manifest Export
+│
+└── tests/                       # Automated Test Suite (20 Pytest Test Cases)
+    ├── test_etl.py              # Schema Integrity, Invariants & Non-Negativity Tests
+    ├── test_data_service.py     # SQL Parameterization & Data Access Tests
+    ├── test_imbalance.py        # Haversine Geodesic Distance & Allocation Tests
+    └── test_models.py           # Feature Pipeline, LightGBM & Expiry Risk Tests
 ```
 
-### Table relationships (referential integrity)
+---
 
-| Table | Foreign keys |
-|---|---|
-| `INVENTORY` | `facility_id → FACILITIES`, `commodity_id → COMMODITIES` |
-| `CONSUMPTION` | `facility_id → FACILITIES`, `commodity_id → COMMODITIES` |
-| `ORDERS` | `facility_id → FACILITIES`, `warehouse_id → KEMSA_WAREHOUSES`, `commodity_id → COMMODITIES`, `supplier_id → SUPPLIERS` |
-| `SHIPMENTS` | `order_id → ORDERS`, `commodity_id → COMMODITIES` |
-| `BATCHES` | `commodity_id → COMMODITIES`, `facility_id → FACILITIES` |
-| `REDISTRIBUTION_EVENTS` | `commodity_id → COMMODITIES`, `source/destination_facility_id → FACILITIES` |
+## 2. End-to-End Workflow & Quick Start
 
-Every facility consumes a subset of commodities daily. Consumption drives the
-daily inventory balance, which triggers reorder-point orders. Orders are shipped
-(possibly delayed/partial) and arrive as expiry-tracked batches that are consumed
-first-to-expire. Redistribution matches surplus facilities to projected-shortage
-facilities after the simulation. Demand events (outbreaks, campaigns, seasons,
-disruptions) modulate consumption and delivery delays.
+### Installation
+```bash
+# 1. Clone repository and install dependencies
+git clone https://github.com/Camilaaoko/Capstone_project.git
+cd Capstone_project
+pip install -r requirements.txt
+pip install -e .
+```
 
-## 2. Generated tables / files
-
-Output directory `output/` (or `--output-dir`):
-
-| File | Rows (approx.) | Description |
-|---|---|---|
-| `FACILITIES.csv` | 150 | 10 counties, 5 facility levels, coords, visits |
-| `KEMSA_WAREHOUSES.csv` | 6 | 1 national + 5 regional warehouses |
-| `COMMODITIES.csv` | 45 | 10 categories with synthetic costs / lead times / levels |
-| `SUPPLIERS.csv` | 12 | Synthetic suppliers incl. 2 unreliable ones |
-| `CONSUMPTION.csv` | ~4.93M | Daily consumption per facility–commodity (24 months) |
-| `INVENTORY.csv` | ~4.93M | Daily balance; `closing = opening + received - issued + adjusted` |
-| `ORDERS.csv` | ~61k | Reorder-point replenishment orders |
-| `SHIPMENTS.csv` | ~59k | One shipment per delivered order |
-| `BATCHES.csv` | ~66k | Received batches with manufacturing/expiry, FEFO draw-down |
-| `REDISTRIBUTION_EVENTS.csv` | ~1.8M | Surplus→shortage matching; recommended + rejected |
-| `DEMAND_EVENTS.csv` | 10 | Seasonal, outbreak, campaign, disruption, spike events |
-| `DATA_QUALITY_ISSUES.csv` | 7 | Catalogue of intentionally introduced issues |
-| `SCENARIO_LABELS.csv` | 49 | Ground-truth mapping of designed scenarios to facilities |
-| `supply_chain.db` | — | SQLite database containing every table |
-
-## 3. Getting started
+### Execution Pipeline
 
 ```bash
-pip install -r requirements.txt
-
-# full dataset (default: 150 facilities, 45 commodities, 24 months)
+# Step 1: Generate synthetic raw data across all 47 counties
 python generate_data.py
 
-# quick / reduced run for development
-python generate_data.py --facilities 30 --commodities 10 --months 6 --output-dir output_quick
-
-# skip the SQLite database (CSV only, faster)
-python generate_data.py --no-sqlite
-
-# reproducible: pass the same --seed
-python generate_data.py --seed 42
-```
-
-The script prints a dataset summary and runs a full validation suite
-(foreign keys, no negative inventory, inventory arithmetic, date ordering,
-expiry-after-manufacturing, redistribution availability) at the end.
-
-## 4. Built-in synthetic scenarios
-
-| Scenario | How it is embedded | Where to look |
-|---|---|---|
-| S1 Stockout | "STRESS" pairs: rising demand (+45% over 24 mo), under-ordering, slow unreliable supplier | `INVENTORY.stock_status = STOCKOUT`; `SCENARIO_LABELS` role `shortage_destination` |
-| S2 Surplus | "SURPLUS" pairs: over-ordering (factor 1.5) vs. stable demand | `INVENTORY.stock_status = OVERSTOCKED`; role `surplus_source` |
-| S3 Redistribution | Designed surplus→shortage chains (12 chains across Amoxicillin, ORS, Paracetamol, Artemether-Lumefantrine, Mebendazole, Metformin, Ceftriaxone) | `REDISTRIBUTION_EVENTS` with `RECOMMENDED` |
-| S4 Expiry risk | "EXPIRY" pairs: high stock, low consumption, short remaining shelf-life batches | `BATCHES.batch_status = APPROACHING_EXPIRY / EXPIRED` |
-| S5 Supplier delay | Low `on_time_delivery_rate` suppliers (SUP006, SUP009) + a transport-strike event | `ORDERS.order_status = DELAYED`, `SHIPMENTS.delay_days` |
-| S6 Demand spike | `EVA008 Flood_2025_Demand_Spike`, cholera outbreak, malaria seasons | `CONSUMPTION` under `DEMAND_EVENTS` |
-| S7 Simultaneous surplus/shortage/normal | Amoxicillin in Nairobi: County Referral (surplus), Sub-County Hospital (shortage), Health Centre (normal) | `SCENARIO_LABELS` for `COM001` |
-
-## 5. Baseline vs. intelligent-system experiment
-
-The dataset is designed so you compute the comparison yourself:
-
-- **Baseline:** a shortage facility places a new order and waits for delivery.
-- **Intelligent:** predict shortage → search network → identify surplus → recommend
-  redistribution → procure only if redistribution is insufficient.
-
-Suggested metrics (SQLite / pandas):
-
-```sql
--- stockout days
-SELECT COUNT(*) FROM INVENTORY WHERE stock_status='STOCKOUT';
-
--- surplus units (units above maximum_stock_level)
--- join INVENTORY with COMMODITIES scaled by facility size
-
--- delayed orders
-SELECT COUNT(*) FROM ORDERS WHERE order_status='DELAYED';
-
--- recommended redistribution vs new procurement
-SELECT commodity_id, COUNT(*), SUM(recommended_quantity)
-FROM REDISTRIBUTION_EVENTS WHERE redistribution_status='RECOMMENDED'
-GROUP BY commodity_id;
-
--- expired / wasted quantity
-SELECT commodity_id, SUM(initial_quantity - remaining_quantity)
-FROM BATCHES WHERE batch_status='EXPIRED' GROUP BY commodity_id;
-```
-
-Example: for a designed chain (see `SCENARIO_LABELS`), take the destination's
-`ORDERS` (baseline procurement cost) and compare against the source's
-`REDISTRIBUTION_EVENTS.recommended_quantity * transport_cost` to show the
-logistics cost of redistribution vs. emergency procurement.
-
-## 6. Reproducibility & randomness
-
-- Fixed seed: `RANDOM_SEED = 42` (override with `--seed`).
-- Same seed ⇒ byte-identical CSV/SQLite output.
-- Determinism note: an extra random draw is used to inject missing
-  `stock_status`/`quantity_consumed` values; this does not affect reproducibility.
-
-## 7. Validation guarantees
-
-The generator validates and will report any violation of:
-
-- foreign-key integrity across all tables
-- no negative inventory quantities
-- `closing_stock == opening_stock + quantity_received - quantity_issued + quantity_adjusted`
-- no delivery date before order date; no arrival before dispatch
-- `expiry_date` after `manufacturing_date` and `received_date`
-- `recommended_quantity <= quantity_available` for recommended redistributions
-  (by construction the source retains safety stock + lead-time buffer)
-
-## 8. Analytics ETL pipeline
-
-A full extract-transform-load pipeline (`etl_pipeline.py`) is included to turn the
-raw synthetic export into an analytics-ready layer:
-
-```bash
-# run ETL on the default full dataset (output/ -> analytics/)
+# Step 2: Run the ETL pipeline (cleans data, builds star schema, creates indexes)
 python etl_pipeline.py
 
-# run ETL on a custom directory
-python etl_pipeline.py --input-dir output_smoke --output-dir analytics_smoke
+# Step 3: Run the automated test suite
+pytest tests/ -v
+
+# Step 4: Train ML models, run allocation engine, and generate figures
+python run_analytics_main.py
+
+# Step 5: Launch the interactive Dash web dashboard (http://127.0.0.1:8050)
+python app_main.py
 ```
 
-### What the ETL does
+---
 
-| Phase | Action |
-|-------|--------|
-| **Extract** | Reads all 13 raw CSVs from `output/` |
-| **Clean** | Fixes the 7 documented data-quality issues:<br>• `FACILITIES`: impute 3 missing `sub_county` from county<br>• `COMMODITIES`: normalise `category` case & trailing spaces<br>• `KEMSA_WAREHOUSES`: strip `warehouse_name` whitespace<br>• `CONSUMPTION`: drop ~400 exact duplicates; impute ~0.4% missing `quantity_consumed` via `patient_demand_index × facility-commodity median`; flag `DELAYED_REPORTING` rows<br>• `INVENTORY`: re-derive ~0.3% missing `stock_status` from scaled levels & expected demand |
-| **Model** | Builds a star schema:<br>• **Dimensions**: `DIM_DATE` (731 days), `DIM_FACILITY` (150), `DIM_COMMODITY` (45), `DIM_SUPPLIER` (12), `DIM_WAREHOUSE` (6)<br>• **Facts**: `FACT_INVENTORY` (4.9M), `FACT_CONSUMPTION` (4.9M), `FACT_ORDERS` (61k), `FACT_SHIPMENTS` (59k), `FACT_BATCHES` (66k), `FACT_REDISTRIBUTION` (1.8M)<br>• **Aggregates**: monthly facility×commodity, commodity, facility, supplier KPIs<br>• **KPI tables** for capstone demos: `KPI_STOCKOUT` (20k), `KPI_OVERSTOCK` (95k), `KPI_EXPIRY` (6.7k), `KPI_SUPPLIER` (9), `KPI_REDISTRIBUTION_CHAINS` (22 designed chains), `KPI_BASELINE_VS_INTELLIGENT` (6.7k) |
-| **Load** | Writes `analytics/analytics.db` (SQLite, ~960 MB) + exports dimensions, aggregates & KPIs as CSV |
-| **Validate** | Re-runs all FK, arithmetic, non-negative, date-ordering, expiry & redistribution checks on the analytics layer |
+## 3. Nationwide 47-County Synthetic Data Generator
 
-### Key analytics tables (query via `analytics/analytics.db`)
+The generator (`generate_data.py`) produces a deterministic, relational supply-chain dataset spanning 24 months (731 days from `2024-01-01` to `2025-12-31`):
 
-```sql
--- Top stockout facilities per commodity
-SELECT facility_name, county, commodity_name, stockout_days
-FROM KPI_STOCKOUT ORDER BY stockout_days DESC LIMIT 20;
+* **All 47 Kenyan Counties**: Every county is configured with its geographic centroid `(latitude, longitude)`, regional disease burden multipliers, and official sub-county divisions.
+* **Tiered Facility Generation**: Interleaved round-robin distribution ensuring every county has:
+  * 1 Level 5 County Referral Hospital
+  * 1–3 Level 4 Sub-County Hospitals
+  * 1–4 Level 3 Health Centres
+  * 1–4 Level 2 Dispensaries
+  * 1 Level 6 National Referral Hospital in Nairobi
+* **45 Essential Healthcare Commodities**: Spanning 10 therapeutic categories (*Antibiotics, Analgesics, Antimalarials, IV Fluids, Maternal Health, Pediatric Medicines, Diabetes, Hypertension, Vaccines, Emergency*).
+* **Realistic Dynamics**: Seasonality waves, disease outbreaks (Cholera, Malaria), deworming campaigns, supplier delivery delays, transport strikes, and FEFO inventory depletion.
 
--- Designed redistribution chains with destination stockout context
-SELECT commodity_name, source_facility_name, destination_facility_name,
-       recommended_events, total_recommended_units, dest_stockout_days
-FROM KPI_REDISTRIBUTION_CHAINS ORDER BY dest_stockout_days DESC;
-
--- Supplier performance
-SELECT supplier_name, orders_placed, orders_delayed, on_time_delivery_rate
-FROM KPI_SUPPLIER ORDER BY orders_delayed DESC;
-
--- Expiry waste by commodity
-SELECT commodity_name, SUM(expired_units) AS total_expired, SUM(wastage_value_kes)
-FROM KPI_EXPIRY GROUP BY 1 ORDER BY 3 DESC;
+```bash
+# Custom generation options
+python generate_data.py --facilities 235 --commodities 45 --months 24
+python generate_data.py --facilities 470 --output-dir output_expanded
 ```
 
-### DQ cleaning log
+---
 
-Every cleaning action is recorded in `DQ_CLEANING_LOG` (also in `analytics.db`) with
-issue ID, table, action taken, and rows affected — enabling full auditability.
+## 4. Analytics ETL Pipeline & Database Optimization
+
+The ETL pipeline (`etl_pipeline.py`) transforms raw CSV files into an analytics-ready warehouse:
+
+1. **Data Cleaning & Auditing**:
+   * Imputes missing sub-counties from county metadata.
+   * Standardizes commodity category case and whitespace formatting.
+   * Eliminates duplicate consumption records and imputes missing consumption values using $PatientDemandIndex \times \text{Facility-Commodity Median}$.
+   * Enforces non-negativity ($\ge 0$) on all stock and consumption series.
+   * Reconciles inventory balance conservation: $\text{Closing} = \text{Opening} + \text{Received} - \text{Issued} \pm \text{Adjusted}$.
+   * Logs every cleaning event into `DQ_CLEANING_LOG` for complete auditability.
+
+2. **Star Schema Architecture**:
+   * **Dimensions**: `DIM_FACILITY`, `DIM_COMMODITY`, `DIM_DATE`, `DIM_SUPPLIER`, `DIM_WAREHOUSE`.
+   * **Facts**: `FACT_INVENTORY`, `FACT_CONSUMPTION`, `FACT_ORDERS`, `FACT_SHIPMENTS`, `FACT_BATCHES`, `FACT_REDISTRIBUTION`.
+   * **KPIs & Aggregates**: `KPI_STOCKOUT`, `KPI_OVERSTOCK`, `KPI_EXPIRY`, `KPI_SUPPLIER`, `KPI_REDISTRIBUTION_CHAINS`, `KPI_BASELINE_VS_INTELLIGENT`.
+
+3. **Query Acceleration (17 B-Tree Indexes)**:
+   SQLite indexes on `(facility_key, commodity_key)`, `date_key`, `facility_id`, `county`, and `category` deliver a **10x–50x speedup** on dashboard queries.
+
+---
+
+## 5. Machine Learning & Predictive Analytics Engine
+
+Implemented in `analytics_module/` and executed via `run_analytics_main.py`:
+
+* **Feature Engineering**: Automated generation of calendar attributes (day of week, month, quarter, holidays), multi-period consumption lags ($t-1, t-2, t-3, t-7, t-14, t-30$), rolling statistics (mean, std, min, max over 7, 14, 30, 60 days), linear trend slopes, and days-of-stock ratios.
+* **LightGBM Demand Forecasting**:
+  * Temporal chronological 80/20 train/test splitting.
+  * Multi-step autoregressive demand predictions over a 30-day forecast horizon.
+  * Benchmark evaluation comparing LightGBM against baseline heuristics (Lag-1 Naive and 7-day Moving Average), reporting % MAE improvement.
+* **FEFO Expiry Risk Modeling**: Dynamic expiry risk scoring calculating remaining shelf-life percentage and financial value at risk based on batch manufacturing and expiry dates.
+* **Inventory Imbalance & Geodesic Optimization**:
+  * Vectorized **Haversine Distance Formula** ($d = 2R \arcsin \sqrt{\dots}$) calculating real road/geodesic distances between facilities.
+  * Multi-criteria matching engine prioritizing pairs by urgency (days of stock deficit), commodity criticality, distance, and logistics ROI.
+  * Budget-constrained Knapsack optimization allocating transfers within transport cost ceilings.
+
+---
+
+## 6. Interactive Web Dashboard (Plotly Dash)
+
+Launched via `python app_main.py`, providing four role-tailored operational views:
+
+1. **Executive Overview (KEMSA Headquarters)**: National KPI summary cards (Stockout Days, Units Short, Expiry Wastage KES, Intelligent Redistribution Savings KES, Supplier On-Time Delivery Rate) and high-level category breakdowns.
+2. **County & Geographic Intelligence (County Health Directors)**:
+   * Interactive **Mapbox OpenStreetMap Tile Map** of Kenya (`zoom=5.5`) visualizing all facilities colored by stockout severity and sized by daily patient volume.
+   * County stockout comparison bar chart with angled labels and top impacted county ranking tables.
+3. **Facility & Inventory Operations (Sub-County Pharmacists)**: Facility-level inventory status, days of stock vs. safety buffer thresholds, and batch expiry chronological tracking.
+4. **AI Redistribution & Allocation Engine (Logistics Planners)**: Recommended surplus-to-deficit transfer matrix, transport costs vs. emergency procurement savings comparison, and an **Export Manifest (CSV)** button for dispatch scheduling.
+
+---
+
+## 7. Automated Testing Suite & CI/CD
+
+The platform includes 20 comprehensive unit and integration tests executed with `pytest`:
+
+```bash
+# Run test suite
+pytest tests/ -v
+```
+
+### Test Coverage Summary:
+* `tests/test_etl.py`: Database table existence, 17 SQLite indexes, inventory conservation arithmetic ($closing = opening + received - issued \pm adjusted$), non-negativity constraints, and foreign key referential integrity.
+* `tests/test_data_service.py`: Parameterized SQL queries, filter options, KPI aggregations, facility coordinate lookups, and SQL injection prevention.
+* `tests/test_imbalance.py`: Haversine geodesic calculations (validated against Nairobi-to-Mombasa ~450km distance), imbalance classification, pair matching, and budget optimization.
+* `tests/test_models.py`: Calendar/lag/rolling feature transformers, LightGBM demand forecasting with baseline comparisons, and dynamic batch expiry risk scoring.
+* **Continuous Integration**: Automated GitHub Actions workflow (`.github/workflows/ci.yml`) testing on Python 3.10, 3.11, 3.12, and 3.13.
+
+---
+
+## 8. Requirements & Tech Stack
+
+* **Language**: Python >= 3.10
+* **Data Processing**: Pandas, NumPy, SciPy
+* **Machine Learning**: LightGBM, Scikit-Learn
+* **Data Storage**: SQLite3
+* **Visualization & UI**: Plotly, Dash, Dash Bootstrap Components, Seaborn, Matplotlib
+* **Testing & CI**: Pytest, Pytest-Cov, GitHub Actions
+
+---
+
+## 9. License & Attribution
+
+Developed for academic research and capstone demonstration under the **MIT License**. Created by Camila Aoko for the KEMSA Healthcare Supply Chain Intelligence Platform project.

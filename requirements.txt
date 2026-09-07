@@ -1,9 +1,24 @@
+# Core Data & Numerical
 numpy>=1.26
 pandas>=2.0
+scipy>=1.11
+
+# Machine Learning & Modeling
+lightgbm>=4.0.0
+scikit-learn>=1.3.0
+
+# Visualization
 plotly>=5.20.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+
+# Dashboard Web Application
 dash>=2.16.0
 dash-bootstrap-components>=1.6.0
 
-# Optional extras (not required for generation):
+# Testing & Quality
+pytest>=8.0.0
+pytest-cov>=4.1.0
+
+# Optional extras
 # faker>=18.0
-# scipy>=1.11

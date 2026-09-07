@@ -11,12 +11,18 @@ warnings.filterwarnings("ignore")
 from analytics_module.config import MODEL_DIR, RANDOM_SEED
 
 
-def predict_expiry_risk(batches_df, horizon_days=90):
+def predict_expiry_risk(batches_df, horizon_days=90, reference_date=None):
     df = batches_df.copy()
     df["received_date"] = pd.to_datetime(df["received_date"])
     df["expiry_date"] = pd.to_datetime(df["expiry_date"])
     df["manufacturing_date"] = pd.to_datetime(df["manufacturing_date"])
-    df["days_to_expiry"] = (df["expiry_date"] - pd.Timestamp("2025-12-31")).dt.days
+    
+    if reference_date is None:
+        reference_date = df["received_date"].max() if df["received_date"].notna().any() else pd.Timestamp("2025-12-31")
+    else:
+        reference_date = pd.to_datetime(reference_date)
+        
+    df["days_to_expiry"] = (df["expiry_date"] - reference_date).dt.days
     df["shelf_life_remaining_pct"] = np.where(
         df["initial_quantity"] > 0,
         df["remaining_quantity"] / df["initial_quantity"], 0
@@ -74,9 +80,15 @@ def train_supplier_delay_model(orders_df, supplier_df):
     return model, X.columns.tolist()
 
 
-def train_expiry_model(batches_df):
+def train_expiry_model(batches_df, reference_date=None):
     df = batches_df.copy()
-    df["days_to_expiry"] = (pd.to_datetime(df["expiry_date"]) - pd.Timestamp("2025-12-31")).dt.days
+    rec_dates = pd.to_datetime(df["received_date"]) if "received_date" in df.columns else None
+    if reference_date is None:
+        reference_date = rec_dates.max() if rec_dates is not None and rec_dates.notna().any() else pd.Timestamp("2025-12-31")
+    else:
+        reference_date = pd.to_datetime(reference_date)
+        
+    df["days_to_expiry"] = (pd.to_datetime(df["expiry_date"]) - reference_date).dt.days
     df["expiry_risk"] = ((df["days_to_expiry"] <= 90) & (df["remaining_quantity"] > 0)).astype(int)
     features = ["initial_quantity", "remaining_quantity", "days_to_expiry", "batch_status"]
     df = df.dropna(subset=features + ["expiry_risk"])

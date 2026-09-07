@@ -101,7 +101,9 @@ def get_all_pairs():
 def sample_pairs(n=MAX_SAMPLE_PAIRS, stratify_by="county"):
     pairs = get_all_pairs()
     if stratify_by in pairs.columns:
-        return pairs.groupby(stratify_by).apply(
-            lambda x: x.sample(min(len(x), n // len(pairs[stratify_by].unique()) + 1), random_state=RANDOM_SEED)
+        n_counties = max(1, len(pairs[stratify_by].unique()))
+        samples_per_county = max(1, n // n_counties)
+        return pairs.groupby(stratify_by, group_keys=False).apply(
+            lambda x: x.sample(min(len(x), samples_per_county), random_state=RANDOM_SEED)
         ).reset_index(drop=True)
     return pairs.sample(min(n, len(pairs)), random_state=RANDOM_SEED)

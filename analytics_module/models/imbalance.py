@@ -11,22 +11,27 @@ warnings.filterwarnings("ignore")
 from analytics_module.config import MODEL_DIR, ANALYTICS_DB
 
 
+def haversine_distance_km(lat1, lon1, lat2, lon2):
+    """Calculate the great circle distance between two points on the earth in km."""
+    lat1, lon1, lat2, lon2 = map(np.radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = np.sin(dlat / 2.0)**2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0)**2
+    c = 2 * np.arcsin(np.sqrt(np.clip(a, 0, 1)))
+    return 6371.0 * c
+
+
 def get_latest_inventory():
     """Load latest inventory snapshot with facility and commodity details."""
     conn = sqlite3.connect(ANALYTICS_DB)
     query = """
         SELECT i.*, f.facility_id, f.facility_name, f.county, f.facility_type,
+               f.latitude, f.longitude,
                c.commodity_id, c.commodity_name, c.category, c.unit_cost
         FROM FACT_INVENTORY i
         JOIN DIM_FACILITY f ON f.facility_key = i.facility_key
         JOIN DIM_COMMODITY c ON c.commodity_key = i.commodity_key
-        JOIN (
-            SELECT facility_key, commodity_key, MAX(date_key) as max_date
-            FROM FACT_INVENTORY
-            GROUP BY facility_key, commodity_key
-        ) latest ON latest.facility_key = i.facility_key 
-                 AND latest.commodity_key = i.commodity_key 
-                 AND latest.max_date = i.date_key
+        WHERE i.date_key = (SELECT MAX(date_key) FROM FACT_INVENTORY)
     """
     df = pd.read_sql(query, conn)
     conn.close()
@@ -42,7 +47,8 @@ def detect_imbalances(inventory_df=None, commodity_df=None, facility_df=None, th
         if commodity_df is not None:
             inv = inv.merge(commodity_df[["commodity_key", "commodity_id", "commodity_name", "unit_cost", "category"]], on="commodity_key", how="left")
         if facility_df is not None:
-            inv = inv.merge(facility_df[["facility_key", "facility_id", "facility_name", "county", "facility_type"]], on="facility_key", how="left")
+            fac_cols = [c for c in ["facility_key", "facility_id", "facility_name", "county", "facility_type", "latitude", "longitude"] if c in facility_df.columns]
+            inv = inv.merge(facility_df[fac_cols], on="facility_key", how="left")
     
     inv["days_of_stock"] = np.where(
         inv["expected_daily_demand"] > 0,
@@ -59,11 +65,13 @@ def detect_imbalances(inventory_df=None, commodity_df=None, facility_df=None, th
     overstocked = inv[inv["is_overstocked"] == 1].copy()
     understocked = inv[inv["is_low"] == 1].copy()
     
-    overstocked["excess_units"] = overstocked["closing_stock"] - (overstocked["expected_daily_demand"] * 30)
+    overstocked["excess_units"] = np.maximum(0.0, overstocked["closing_stock"] - (overstocked["expected_daily_demand"] * 30))
     overstocked["excess_value"] = overstocked["excess_units"] * overstocked.get("unit_cost", 0)
+    overstocked = overstocked[overstocked["excess_units"] > 0].copy()
     
-    understocked["deficit_units"] = (understocked["expected_daily_demand"] * threshold_dofs) - understocked["closing_stock"]
+    understocked["deficit_units"] = np.maximum(0.0, (understocked["expected_daily_demand"] * threshold_dofs) - understocked["closing_stock"])
     understocked["deficit_value"] = understocked["deficit_units"] * understocked.get("unit_cost", 0)
+    understocked = understocked[understocked["deficit_units"] > 0].copy()
     
     return {
         "overstocked": overstocked.sort_values("excess_value", ascending=False),
@@ -79,11 +87,12 @@ def detect_imbalances(inventory_df=None, commodity_df=None, facility_df=None, th
     }
 
 
-def find_matching_pairs(overstocked_df, understocked_df, facility_df, max_distance_km=400):
+def find_matching_pairs(overstocked_df, understocked_df, facility_df=None, max_distance_km=400):
     """Find potential redistribution matches between overstocked and understocked pairs."""
     if "facility_name" not in overstocked_df.columns and facility_df is not None:
-        overstocked_df = overstocked_df.merge(facility_df[["facility_key", "facility_id", "facility_name", "county"]], on="facility_key", how="left")
-        understocked_df = understocked_df.merge(facility_df[["facility_key", "facility_id", "facility_name", "county"]], on="facility_key", how="left")
+        fac_cols = [c for c in ["facility_key", "facility_id", "facility_name", "county", "latitude", "longitude"] if c in facility_df.columns]
+        overstocked_df = overstocked_df.merge(facility_df[fac_cols], on="facility_key", how="left")
+        understocked_df = understocked_df.merge(facility_df[fac_cols], on="facility_key", how="left")
     
     # Rename columns to ensure proper suffixing on merge
     over_cols = {c: f"{c}_src" for c in ["excess_units", "excess_value", "deficit_units", "deficit_value"] if c in overstocked_df.columns}
@@ -102,12 +111,22 @@ def find_matching_pairs(overstocked_df, understocked_df, facility_df, max_distan
     # Filter out same facility
     merged = merged[merged["facility_key_src"] != merged["facility_key_dst"]]
     
-    # Calculate distance (vectorized)
-    merged["distance_km"] = np.where(
-        merged["county_src"] == merged["county_dst"],
-        50.0,
-        200.0
-    )
+    # Calculate distance using real geodesic Haversine formula if coordinates available
+    if "latitude_src" in merged.columns and "latitude_dst" in merged.columns and merged["latitude_src"].notna().any():
+        merged["distance_km"] = haversine_distance_km(
+            merged["latitude_src"].astype(float),
+            merged["longitude_src"].astype(float),
+            merged["latitude_dst"].astype(float),
+            merged["longitude_dst"].astype(float)
+        ).round(1)
+        merged["distance_km"] = merged["distance_km"].clip(lower=10.0)
+    else:
+        # Fallback to county heuristic
+        merged["distance_km"] = np.where(
+            merged["county_src"] == merged["county_dst"],
+            50.0,
+            200.0
+        )
     
     # Filter by max distance
     merged = merged[merged["distance_km"] <= max_distance_km]

@@ -103,9 +103,9 @@ class Etl:
         n_dup = n_before - len(con)
         self.log_rule("ISSUE006", "CONSUMPTION", f"removed exact duplicates ({n_dup})", n_dup)
 
-        con["quantity_consumed"] = to_num(con["quantity_consumed"])
-        con["patient_demand_index"] = to_num(con["patient_demand_index"])
-        con["seasonality_factor"] = to_num(con["seasonality_factor"])
+        con["quantity_consumed"] = to_num(con["quantity_consumed"]).clip(lower=0.0)
+        con["patient_demand_index"] = to_num(con["patient_demand_index"]).clip(lower=0.0)
+        con["seasonality_factor"] = to_num(con["seasonality_factor"]).clip(lower=0.0)
 
         missing = con["quantity_consumed"].isna()
         if missing.any():
@@ -133,6 +133,12 @@ class Etl:
         for col in ["opening_stock", "quantity_received", "quantity_issued",
                     "quantity_adjusted", "closing_stock"]:
             inv[col] = to_num(inv[col])
+
+        # Enforce non-negativity and exact inventory balance conservation
+        inv["opening_stock"] = inv["opening_stock"].clip(lower=0.0)
+        inv["quantity_received"] = inv["quantity_received"].clip(lower=0.0)
+        inv["quantity_issued"] = inv["quantity_issued"].clip(lower=0.0)
+        inv["closing_stock"] = (inv["opening_stock"] + inv["quantity_received"] - inv["quantity_issued"] + inv["quantity_adjusted"].fillna(0.0)).round(1).clip(lower=0.0)
 
         self.d["INVENTORY"] = inv
 
@@ -560,6 +566,8 @@ class Etl:
         rules.to_sql("DQ_CLEANING_LOG", conn, if_exists="replace", index=False)
         self.note("  ETL_RUN_LOG          1 rows")
         self.note(f"  DQ_CLEANING_LOG      {len(rules)} rows")
+        
+        self._create_indexes(conn)
         conn.close()
 
         small = ["DIM_DATE", "DIM_FACILITY", "DIM_COMMODITY", "DIM_SUPPLIER", "DIM_WAREHOUSE",
@@ -577,6 +585,32 @@ class Etl:
             df.to_csv(os.path.join(self.output_dir, f"{name}.csv"), index=False)
         self.note(f"Exported {len(small)} tables as CSV to {self.output_dir}/")
         return self
+
+    def _create_indexes(self, conn):
+        self.note("Creating SQLite indexes for query acceleration...")
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_inv_fac_com ON FACT_INVENTORY(facility_key, commodity_key);",
+            "CREATE INDEX IF NOT EXISTS idx_inv_date ON FACT_INVENTORY(date_key);",
+            "CREATE INDEX IF NOT EXISTS idx_cons_fac_com ON FACT_CONSUMPTION(facility_key, commodity_key);",
+            "CREATE INDEX IF NOT EXISTS idx_cons_date ON FACT_CONSUMPTION(date_key);",
+            "CREATE INDEX IF NOT EXISTS idx_orders_fac ON FACT_ORDERS(facility_key);",
+            "CREATE INDEX IF NOT EXISTS idx_orders_sup ON FACT_ORDERS(supplier_key);",
+            "CREATE INDEX IF NOT EXISTS idx_batches_fac_exp ON FACT_BATCHES(facility_key, expiry_date);",
+            "CREATE INDEX IF NOT EXISTS idx_redis_status ON FACT_REDISTRIBUTION(redistribution_status);",
+            "CREATE INDEX IF NOT EXISTS idx_dim_fac_id ON DIM_FACILITY(facility_id);",
+            "CREATE INDEX IF NOT EXISTS idx_dim_fac_county ON DIM_FACILITY(county);",
+            "CREATE INDEX IF NOT EXISTS idx_dim_com_id ON DIM_COMMODITY(commodity_id);",
+            "CREATE INDEX IF NOT EXISTS idx_dim_com_cat ON DIM_COMMODITY(category);",
+            "CREATE INDEX IF NOT EXISTS idx_kpi_sout_county ON KPI_STOCKOUT(county);",
+            "CREATE INDEX IF NOT EXISTS idx_kpi_sout_cat ON KPI_STOCKOUT(category);",
+            "CREATE INDEX IF NOT EXISTS idx_kpi_exp_fac ON KPI_EXPIRY(facility_id);",
+            "CREATE INDEX IF NOT EXISTS idx_kpi_redis_s_dst ON KPI_REDISTRIBUTION_CHAINS(source_facility_id, destination_facility_id);",
+            "CREATE INDEX IF NOT EXISTS idx_kpi_base_fac ON KPI_BASELINE_VS_INTELLIGENT(facility_id);"
+        ]
+        for sql in indexes:
+            conn.execute(sql)
+        conn.commit()
+        self.note(f"  Created {len(indexes)} SQLite indexes successfully.")
 
     def validate(self):
         self.note("Validating analytics layer")

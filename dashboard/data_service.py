@@ -74,11 +74,14 @@ def get_executive_kpis(county: str = "ALL", category: str = "ALL") -> Dict[str, 
 
     # Stockouts
     q_sout = "SELECT SUM(stockout_days) as total_stockout_days, SUM(units_short) as total_units_short FROM KPI_STOCKOUT WHERE 1=1"
+    p_sout = []
     if county != "ALL":
-        q_sout += f" AND county = '{county}'"
+        q_sout += " AND county = ?"
+        p_sout.append(county)
     if category != "ALL":
-        q_sout += f" AND category = '{category}'"
-    df_sout = pd.read_sql(q_sout, conn)
+        q_sout += " AND category = ?"
+        p_sout.append(category)
+    df_sout = pd.read_sql(q_sout, conn, params=p_sout)
 
     # Expiry Wastage
     q_exp = """
@@ -88,11 +91,14 @@ def get_executive_kpis(county: str = "ALL", category: str = "ALL") -> Dict[str, 
         JOIN DIM_COMMODITY c ON c.commodity_id = e.commodity_id
         WHERE 1=1
     """
+    p_exp = []
     if county != "ALL":
-        q_exp += f" AND f.county = '{county}'"
+        q_exp += " AND f.county = ?"
+        p_exp.append(county)
     if category != "ALL":
-        q_exp += f" AND c.category = '{category}'"
-    df_exp = pd.read_sql(q_exp, conn)
+        q_exp += " AND c.category = ?"
+        p_exp.append(category)
+    df_exp = pd.read_sql(q_exp, conn, params=p_exp)
 
     # Redistribution Savings
     q_sav = """
@@ -103,11 +109,14 @@ def get_executive_kpis(county: str = "ALL", category: str = "ALL") -> Dict[str, 
         JOIN DIM_COMMODITY c ON c.commodity_key = b.commodity_key
         WHERE 1=1
     """
+    p_sav = []
     if county != "ALL":
-        q_sav += f" AND b.county = '{county}'"
+        q_sav += " AND b.county = ?"
+        p_sav.append(county)
     if category != "ALL":
-        q_sav += f" AND c.category = '{category}'"
-    df_sav = pd.read_sql(q_sav, conn)
+        q_sav += " AND c.category = ?"
+        p_sav.append(category)
+    df_sav = pd.read_sql(q_sav, conn, params=p_sav)
 
     # Suppliers (National)
     df_sup = pd.read_sql(
@@ -134,12 +143,15 @@ def get_stockout_breakdown(county: str = "ALL", category: str = "ALL", top_n: in
     """Returns top stockout facility-commodity pairs."""
     conn = get_connection()
     q = "SELECT facility_name, county, commodity_name, category, stockout_days, units_short, avg_days_of_stock FROM KPI_STOCKOUT WHERE 1=1"
+    params = []
     if county != "ALL":
-        q += f" AND county = '{county}'"
+        q += " AND county = ?"
+        params.append(county)
     if category != "ALL":
-        q += f" AND category = '{category}'"
-    q += f" ORDER BY stockout_days DESC LIMIT {top_n}"
-    df = pd.read_sql(q, conn)
+        q += " AND category = ?"
+        params.append(category)
+    q += f" ORDER BY stockout_days DESC LIMIT {int(top_n)}"
+    df = pd.read_sql(q, conn, params=params)
     conn.close()
     return df
 
@@ -148,10 +160,12 @@ def get_category_stockout_summary(county: str = "ALL") -> pd.DataFrame:
     """Aggregates stockout days by commodity category."""
     conn = get_connection()
     q = "SELECT category, SUM(stockout_days) as total_stockout_days, SUM(units_short) as total_units_short FROM KPI_STOCKOUT WHERE 1=1"
+    params = []
     if county != "ALL":
-        q += f" AND county = '{county}'"
+        q += " AND county = ?"
+        params.append(county)
     q += " GROUP BY category ORDER BY total_stockout_days DESC"
-    df = pd.read_sql(q, conn)
+    df = pd.read_sql(q, conn, params=params)
     conn.close()
     return df
 
@@ -167,12 +181,15 @@ def get_expiry_waste_by_commodity(county: str = "ALL", category: str = "ALL", to
         JOIN DIM_COMMODITY c ON c.commodity_id = e.commodity_id
         WHERE 1=1
     """
+    params = []
     if county != "ALL":
-        q += f" AND f.county = '{county}'"
+        q += " AND f.county = ?"
+        params.append(county)
     if category != "ALL":
-        q += f" AND c.category = '{category}'"
-    q += f" GROUP BY e.commodity_name, c.category ORDER BY total_wastage_kes DESC LIMIT {top_n}"
-    df = pd.read_sql(q, conn)
+        q += " AND c.category = ?"
+        params.append(category)
+    q += f" GROUP BY e.commodity_name, c.category ORDER BY total_wastage_kes DESC LIMIT {int(top_n)}"
+    df = pd.read_sql(q, conn, params=params)
     conn.close()
     return df
 
@@ -219,10 +236,12 @@ def get_facility_locations(county: str = "ALL") -> pd.DataFrame:
         LEFT JOIN KPI_STOCKOUT s ON s.facility_id = f.facility_id
         WHERE f.latitude IS NOT NULL AND f.longitude IS NOT NULL
     """
+    params = []
     if county != "ALL":
-        q += f" AND f.county = '{county}'"
+        q += " AND f.county = ?"
+        params.append(county)
     q += " GROUP BY f.facility_id ORDER BY total_stockout_days DESC"
-    df = pd.read_sql(q, conn)
+    df = pd.read_sql(q, conn, params=params)
     conn.close()
     return df
 
@@ -239,12 +258,15 @@ def get_redistribution_recommendations(county: str = "ALL", category: str = "ALL
         JOIN DIM_COMMODITY c ON c.commodity_id = r.commodity_id
         WHERE 1=1
     """
+    params = []
     if county != "ALL":
-        q += f" AND (r.source_county = '{county}' OR r.destination_county = '{county}')"
+        q += " AND (r.source_county = ? OR r.destination_county = ?)"
+        params.extend([county, county])
     if category != "ALL":
-        q += f" AND c.category = '{category}'"
-    q += f" ORDER BY r.dest_stockout_days DESC, r.total_recommended_units DESC LIMIT {top_n}"
-    df = pd.read_sql(q, conn)
+        q += " AND c.category = ?"
+        params.append(category)
+    q += f" ORDER BY r.dest_stockout_days DESC, r.total_recommended_units DESC LIMIT {int(top_n)}"
+    df = pd.read_sql(q, conn, params=params)
     conn.close()
     return df
 
@@ -260,12 +282,15 @@ def get_savings_comparison(county: str = "ALL", category: str = "ALL", top_n: in
         JOIN DIM_COMMODITY c ON c.commodity_key = b.commodity_key
         WHERE 1=1
     """
+    params = []
     if county != "ALL":
-        q += f" AND b.county = '{county}'"
+        q += " AND b.county = ?"
+        params.append(county)
     if category != "ALL":
-        q += f" AND c.category = '{category}'"
-    q += f" ORDER BY b.savings_kes DESC LIMIT {top_n}"
-    df = pd.read_sql(q, conn)
+        q += " AND c.category = ?"
+        params.append(category)
+    q += f" ORDER BY b.savings_kes DESC LIMIT {int(top_n)}"
+    df = pd.read_sql(q, conn, params=params)
     conn.close()
     return df
 
@@ -308,4 +333,3 @@ def get_facility_batch_expiry(facility_id: str) -> pd.DataFrame:
     df = pd.read_sql(q, conn, params=(facility_id,))
     conn.close()
     return df
-

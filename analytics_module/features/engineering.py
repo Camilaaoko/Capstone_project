@@ -62,6 +62,31 @@ def add_inventory_features(inv_df, cons_df):
     return inv
 
 
+def load_pair_features_from_db(fac_key, com_key, conn=None):
+    """Direct fast SQL extraction for a single facility-commodity pair."""
+    close_conn = False
+    if conn is None:
+        from analytics_module.data.loader import get_connection
+        conn = get_connection()
+        close_conn = True
+
+    cons_df = pd.read_sql(
+        "SELECT * FROM FACT_CONSUMPTION WHERE facility_key = ? AND commodity_key = ? ORDER BY date_key",
+        conn, params=(int(fac_key), int(com_key))
+    )
+    inv_df = pd.read_sql(
+        "SELECT * FROM FACT_INVENTORY WHERE facility_key = ? AND commodity_key = ? ORDER BY date_key",
+        conn, params=(int(fac_key), int(com_key))
+    )
+    if close_conn:
+        conn.close()
+
+    if len(cons_df) < MIN_TRAIN_DAYS or len(inv_df) < MIN_TRAIN_DAYS:
+        return None
+
+    return build_demand_features(fac_key, com_key, inv_df, cons_df)
+
+
 def build_demand_features(fac_key, com_key, inv_df, cons_df, max_lag=30):
     cons_pair = cons_df[(cons_df.facility_key == fac_key) & (cons_df.commodity_key == com_key)].copy()
     inv_pair = inv_df[(inv_df.facility_key == fac_key) & (inv_df.commodity_key == com_key)].copy()
@@ -92,12 +117,29 @@ def build_demand_features(fac_key, com_key, inv_df, cons_df, max_lag=30):
     return merged.dropna(subset=["target_next_day"])
 
 
-def build_training_dataset(pairs_df, inv_df, cons_df, sample_pairs=2000):
+def build_training_dataset(pairs_df, inv_df=None, cons_df=None, sample_pairs=2000, conn=None):
     all_features = []
+    close_conn = False
+    if inv_df is None or cons_df is None:
+        from analytics_module.data.loader import get_connection
+        if conn is None:
+            conn = get_connection()
+            close_conn = True
+
     for _, row in pairs_df.head(sample_pairs).iterrows():
-        feats = build_demand_features(row.facility_key, row.commodity_key, inv_df, cons_df)
+        fac_key = int(row.facility_key)
+        com_key = int(row.commodity_key)
+        if inv_df is not None and cons_df is not None:
+            feats = build_demand_features(fac_key, com_key, inv_df, cons_df)
+        else:
+            feats = load_pair_features_from_db(fac_key, com_key, conn=conn)
+
         if feats is not None and len(feats) > 100:
             all_features.append(feats)
+
+    if close_conn and conn:
+        conn.close()
+
     if not all_features:
         return pd.DataFrame()
     return pd.concat(all_features, ignore_index=True)

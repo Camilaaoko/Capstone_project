@@ -1,6 +1,6 @@
 """Main reactive callbacks connecting filters, tabs, and data views."""
 
-from dash import Input, Output, State, html
+from dash import Input, Output, State, html, dcc
 import dash_bootstrap_components as dbc
 import plotly.express as px
 import plotly.graph_objects as go
@@ -9,7 +9,8 @@ import pandas as pd
 from dashboard.data_service import (
     get_executive_kpis,
     get_facility_inventory_status,
-    get_facility_batch_expiry
+    get_facility_batch_expiry,
+    get_redistribution_recommendations
 )
 from dashboard.components.cards import create_kpi_deck
 from dashboard.views.executive_view import render_executive_view
@@ -119,4 +120,21 @@ def register_callbacks(app):
             batch_table = html.P("No active batches found for this facility.", className="text-muted")
 
         return fig_dos, batch_table
+
+    # 4. Export Redistribution Manifest as CSV
+    @app.callback(
+        Output("download-redistribution-csv", "data"),
+        [Input("btn-export-redistribution", "n_clicks")],
+        [
+            State("global-county-filter", "value"),
+            State("global-category-filter", "value")
+        ],
+        prevent_initial_call=True
+    )
+    def export_redistribution_csv(n_clicks, county, category):
+        if not n_clicks:
+            return None
+        df_chains = get_redistribution_recommendations(county=county or "ALL", category=category or "ALL", top_n=500)
+        return dcc.send_data_frame(df_chains.to_csv, "kemsa_redistribution_manifest.csv", index=False)
+
 
