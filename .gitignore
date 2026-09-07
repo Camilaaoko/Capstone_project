@@ -31,8 +31,8 @@ htmlcov/
 output/
 output_smoke/
 output_quick/
-analytics/*.csv
-analytics_smoke/*.csv
+analytics/
+analytics_smoke/
 *.log
 etl_*_log*.txt
 full_run_log*.txt
