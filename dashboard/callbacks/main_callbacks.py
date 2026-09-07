@@ -1,5 +1,4 @@
 """Main reactive callbacks connecting routing, authentication, filters, tabs, and data views."""
-
 import dash
 from dash import Input, Output, State, ctx, html, dcc, ALL
 import dash_bootstrap_components as dbc
@@ -366,7 +365,7 @@ def register_callbacks(app: dash.Dash):
             batch_table = html.P("No active batches found for this facility.", className="text-muted p-3 mb-0")
 
         return fig_dos, batch_table
-    # 8. Export Redistribution Manifest as CSV
+    # Export Redistribution Manifest as CSV
     @app.callback(
         Output("download-redistribution-csv", "data"),
         [Input("btn-export-redistribution", "n_clicks")],

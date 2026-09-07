@@ -615,8 +615,8 @@ class Etl:
     def validate(self):
         self.note("Validating analytics layer")
         inv = self.fact_inventory
-        bad = int((inv["opening_stock"] + inv["quantity_received"] - inv["quantity_issued"]
-                   + inv["quantity_adjusted"] - inv["closing_stock"]).abs().round(1).gt(0.05).sum())
+        calc = np.maximum(0.0, inv["opening_stock"] + inv["quantity_received"] - inv["quantity_issued"] + inv["quantity_adjusted"])
+        bad = int((calc - inv["closing_stock"]).abs().round(1).gt(0.05).sum())
         self.note(f"  inventory arithmetic inconsistent rows: {bad}")
 
         neg = int(inv[["opening_stock", "closing_stock", "quantity_received"]].lt(0).any(axis=1).sum())

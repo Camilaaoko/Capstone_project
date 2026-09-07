@@ -424,6 +424,7 @@ def render_county_view(county: str = "ALL", category: str = "ALL", tier: str = "
             labels={"stockout_days": "Stockout Days", "location_name": "Jurisdiction", "facilities_with_stockouts": "Impacted Facilities"}
         )
         fig_county.update_layout(
+            margin=dict(l=20, r=20, t=40, b=80),
             **layout,
             xaxis_tickangle=-45,
             height=380
