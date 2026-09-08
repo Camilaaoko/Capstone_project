@@ -31,7 +31,9 @@ htmlcov/
 output/
 output_smoke/
 output_quick/
-analytics/
+analytics/*.db
+analytics/*.csv
+!analytics/.gitkeep
 analytics_smoke/
 *.log
 etl_*_log*.txt
