@@ -4,11 +4,8 @@ services:
     runtime: python
     plan: free
     branch: main
-    buildCommand: bash render_build.sh
-    startCommand: gunicorn wsgi:server --workers 2 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT
+    buildCommand: bash render-build.sh
+    startCommand: gunicorn dashboard.app:server --workers 1 --threads 2 --timeout 120 --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.9
-      - key: PORT
-        value: 10000
-
+        value: 3.10.0

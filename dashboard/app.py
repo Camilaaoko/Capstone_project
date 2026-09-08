@@ -1,5 +1,6 @@
 """Dash application factory and multi-page layout architecture."""
 
+import os
 import dash
 from dash import html, dcc
 import dash_bootstrap_components as dbc
@@ -10,6 +11,8 @@ from dashboard.callbacks.main_callbacks import register_callbacks
 
 def create_app() -> dash.Dash:
     """Instantiates and configures the Dash multi-page application."""
+    is_production = bool(os.environ.get("RENDER") or os.environ.get("ENVIRONMENT") == "production")
+
     app = dash.Dash(
         __name__,
         external_stylesheets=[
@@ -19,6 +22,9 @@ def create_app() -> dash.Dash:
         suppress_callback_exceptions=True,
         title="KEMSA Healthcare Supply Chain Intelligence Platform"
     )
+
+    if is_production:
+        app.server.config["DEBUG"] = False
 
     # Base Layout with URL router & Session Store
     app.layout = html.Div([
