@@ -30,7 +30,7 @@ def test_database_tables_exist(db_conn):
     expected_tables = {
         "DIM_DATE", "DIM_FACILITY", "DIM_COMMODITY", "DIM_SUPPLIER", "DIM_WAREHOUSE",
         "FACT_INVENTORY", "FACT_CONSUMPTION", "FACT_ORDERS", "FACT_SHIPMENTS",
-        "FACT_BATCHES", "FACT_REDISTRIBUTION",
+        "FACT_BATCHES", "FACT_REDISTRIBUTION", "FACT_COUNTY_DEBT",
         "KPI_STOCKOUT", "KPI_OVERSTOCK", "KPI_EXPIRY", "KPI_SUPPLIER",
         "KPI_REDISTRIBUTION_CHAINS", "KPI_BASELINE_VS_INTELLIGENT"
     }
@@ -49,7 +49,8 @@ def test_database_indexes_exist(db_conn):
         "idx_inv_fac_com",
         "idx_cons_fac_com",
         "idx_dim_fac_id",
-        "idx_dim_com_id"
+        "idx_dim_com_id",
+        "idx_county_debt"
     ]
     for idx in expected_indexes:
         assert idx in indexes, f"Expected index {idx} not found in analytics.db"

@@ -1140,6 +1140,74 @@ class SupplyChainGenerator:
         self.shipments_df = pd.DataFrame(self.shipments)
         self.redis_df = pd.DataFrame(self.redis)
         self.scenario_df = pd.DataFrame(self.scenario_labels)
+        if not hasattr(self, "county_debt_df") or self.county_debt_df.empty:
+            self.generate_county_debt()
+
+    def generate_county_debt(self):
+        """Generates realistic monthly financial debt, arrears, and payment reliability records per county."""
+        records = []
+        rng = self.rng
+        county_names = list(COUNTIES.keys())
+
+        # High-risk: High accumulated debt, long payment overdue days, low payment reliability
+        high_risk_counties = {"Nairobi", "Kilifi", "Garissa", "Homa Bay", "Turkana", "Bungoma", "Machakos", "Wajir"}
+        # Low-risk: Minimal debt, negligible overdue days, high prompt payment score
+        low_risk_counties = {"Makueni", "Nyeri", "Uasin Gishu", "Nyandarua", "Tharaka-Nithi", "Kericho", "Bomet", "Laikipia"}
+
+        for county in county_names:
+            if county in high_risk_counties:
+                base_debt = rng.uniform(180_000_000, 420_000_000)
+                base_overdue = rng.uniform(110, 290)
+                base_payment_score = rng.uniform(18, 42)
+                growth_rate = rng.uniform(1.01, 1.035)
+            elif county in low_risk_counties:
+                base_debt = rng.uniform(2_000_000, 30_000_000)
+                base_overdue = rng.uniform(0, 25)
+                base_payment_score = rng.uniform(82, 98)
+                growth_rate = rng.uniform(0.97, 1.01)
+            else:
+                base_debt = rng.uniform(45_000_000, 140_000_000)
+                base_overdue = rng.uniform(35, 80)
+                base_payment_score = rng.uniform(50, 78)
+                growth_rate = rng.uniform(0.99, 1.02)
+
+            cur_debt = base_debt
+            cur_overdue = base_overdue
+            cur_score = base_payment_score
+
+            d = START_DATE
+            for m in range(self.months):
+                year = d.year + (d.month - 1 + m) // 12
+                month = ((d.month - 1 + m) % 12) + 1
+                month_str = f"{year:04d}-{month:02d}"
+
+                debt_noise = rng.normal(0, cur_debt * 0.03)
+                amount_owed = max(0.0, cur_debt + debt_noise)
+                overdue_noise = rng.uniform(-4, 6)
+                overdue = max(0, int(cur_overdue + overdue_noise))
+                score_noise = rng.uniform(-2.5, 2.5)
+                score = min(100.0, max(0.0, cur_score + score_noise))
+
+                records.append({
+                    "county": county,
+                    "month": month_str,
+                    "amount_owed_kes": round(amount_owed, 2),
+                    "days_overdue": overdue,
+                    "payment_history_score": round(score, 1)
+                })
+
+                cur_debt = cur_debt * growth_rate
+                if county in high_risk_counties:
+                    cur_overdue = min(365, cur_overdue + rng.uniform(1, 3))
+                    cur_score = max(5, cur_score - rng.uniform(0.1, 0.3))
+                elif county in low_risk_counties:
+                    cur_overdue = max(0, cur_overdue + rng.uniform(-1, 1))
+                    cur_score = min(100, cur_score + rng.uniform(-0.15, 0.15))
+                else:
+                    cur_overdue = max(0, min(180, cur_overdue + rng.uniform(-1, 2)))
+                    cur_score = max(10, min(95, cur_score + rng.uniform(-0.2, 0.2)))
+
+        self.county_debt_df = pd.DataFrame(records)
 
     def write_outputs(self, output_dir, conn):
         for table, frame in [
@@ -1154,6 +1222,7 @@ class SupplyChainGenerator:
             ("DEMAND_EVENTS", self.events_df),
             ("DATA_QUALITY_ISSUES", pd.DataFrame(self.dq_issues)),
             ("SCENARIO_LABELS", self.scenario_df),
+            ("COUNTY_DEBT", self.county_debt_df),
         ]:
             frame.to_csv(os.path.join(output_dir, table + ".csv"), index=False)
             if conn is not None:
@@ -1305,6 +1374,7 @@ def main():
     parser.add_argument("--months", type=int, default=24, help="Number of months (default: 24)")
     parser.add_argument("--seed", type=int, default=RANDOM_SEED, help="Random seed (default: 42)")
     parser.add_argument("--no-sqlite", action="store_true", help="Skip SQLite database creation")
+    parser.add_argument("--only-county-debt", action="store_true", help="Generate only COUNTY_DEBT.csv without running full simulation")
     args = parser.parse_args()
 
     if args.facilities > 1000:
@@ -1316,6 +1386,14 @@ def main():
 
     output_dir = args.output_dir
     os.makedirs(output_dir, exist_ok=True)
+
+    if args.only_county_debt:
+        gen = SupplyChainGenerator(args.facilities, args.commodities, args.months, seed=args.seed)
+        gen.generate_county_debt()
+        debt_path = os.path.join(output_dir, "COUNTY_DEBT.csv")
+        gen.county_debt_df.to_csv(debt_path, index=False)
+        print(f"Generated {len(gen.county_debt_df):,} county debt records to {debt_path}")
+        return
 
     conn = None
     if not args.no_sqlite:

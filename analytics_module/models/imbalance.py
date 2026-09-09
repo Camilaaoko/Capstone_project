@@ -119,13 +119,12 @@ def find_matching_pairs(overstocked_df, understocked_df, facility_df=None, max_d
             merged["latitude_dst"].astype(float),
             merged["longitude_dst"].astype(float)
         ).round(1)
-        merged["distance_km"] = merged["distance_km"].clip(lower=10.0)
     else:
-        # Fallback to county heuristic
+        # Fallback to county heuristic if coordinates are completely absent
         merged["distance_km"] = np.where(
             merged["county_src"] == merged["county_dst"],
-            50.0,
-            200.0
+            15.0,
+            85.0
         )
     
     # Filter by max distance
@@ -169,13 +168,33 @@ def find_matching_pairs(overstocked_df, understocked_df, facility_df=None, max_d
     return matches_df
 
 
-def estimate_distance(source_row, dest_row, facility_df):
-    """Estimate distance between facilities (simplified: same county=50km, different=200km)."""
-    if "county" in source_row and "county" in dest_row:
-        if source_row["county"] == dest_row["county"]:
-            return 50.0
-        return 200.0
-    return 150.0
+def estimate_distance(source_row, dest_row, facility_df=None):
+    """Calculates real geodesic Haversine distance between facilities using actual GPS coordinates."""
+    lat1 = source_row.get("latitude") if isinstance(source_row, dict) else (source_row["latitude"] if "latitude" in source_row else None)
+    lon1 = source_row.get("longitude") if isinstance(source_row, dict) else (source_row["longitude"] if "longitude" in source_row else None)
+    lat2 = dest_row.get("latitude") if isinstance(dest_row, dict) else (dest_row["latitude"] if "latitude" in dest_row else None)
+    lon2 = dest_row.get("longitude") if isinstance(dest_row, dict) else (dest_row["longitude"] if "longitude" in dest_row else None)
+
+    if (lat1 is None or lon1 is None) and facility_df is not None:
+        src_id = source_row.get("facility_id") if isinstance(source_row, dict) else source_row["facility_id"]
+        match = facility_df[facility_df["facility_id"] == src_id]
+        if not match.empty:
+            lat1 = match.iloc[0]["latitude"]
+            lon1 = match.iloc[0]["longitude"]
+
+    if (lat2 is None or lon2 is None) and facility_df is not None:
+        dst_id = dest_row.get("facility_id") if isinstance(dest_row, dict) else dest_row["facility_id"]
+        match = facility_df[facility_df["facility_id"] == dst_id]
+        if not match.empty:
+            lat2 = match.iloc[0]["latitude"]
+            lon2 = match.iloc[0]["longitude"]
+
+    if lat1 is not None and lon1 is not None and lat2 is not None and lon2 is not None:
+        return round(float(haversine_distance_km(float(lat1), float(lon1), float(lat2), float(lon2))), 1)
+
+    c1 = source_row.get("county") if isinstance(source_row, dict) else source_row.get("county", "")
+    c2 = dest_row.get("county") if isinstance(dest_row, dict) else dest_row.get("county", "")
+    return 15.0 if c1 == c2 else 85.0
 
 
 def optimize_allocation(matches_df, budget_kes=None, max_distance_km=None):

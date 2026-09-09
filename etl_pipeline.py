@@ -55,9 +55,10 @@ class Etl:
         self.d = {}
         for name in ["FACILITIES", "KEMSA_WAREHOUSES", "COMMODITIES", "SUPPLIERS",
                      "CONSUMPTION", "INVENTORY", "ORDERS", "SHIPMENTS", "BATCHES",
-                     "REDISTRIBUTION_EVENTS", "DEMAND_EVENTS", "SCENARIO_LABELS"]:
+                     "REDISTRIBUTION_EVENTS", "DEMAND_EVENTS", "SCENARIO_LABELS", "COUNTY_DEBT"]:
             path = os.path.join(self.input_dir, f"{name}.csv")
-            self.d[name] = read_csv(path)
+            if os.path.exists(path):
+                self.d[name] = read_csv(path)
         self.d["DATA_QUALITY_ISSUES"] = read_csv(os.path.join(self.input_dir, "DATA_QUALITY_ISSUES.csv"))
         for name, df in self.d.items():
             self.note(f"  {name:22s} {len(df):>10,} rows")
@@ -70,6 +71,7 @@ class Etl:
         self._clean_warehouses()
         self._clean_consumption()
         self._clean_inventory()
+        self._clean_county_debt()
         return self
 
     def _clean_facilities(self):
@@ -146,6 +148,17 @@ class Etl:
         if n_null:
             self.note(f"  re-deriving {n_null:,} missing stock_status values")
         self.log_rule("ISSUE007", "INVENTORY", "re-derived missing stock_status from levels", n_null)
+
+    def _clean_county_debt(self):
+        cd = self.d.get("COUNTY_DEBT")
+        if cd is not None and not cd.empty:
+            cd["county"] = cd["county"].astype(str).str.strip()
+            cd["month"] = cd["month"].astype(str).str.strip()
+            cd["amount_owed_kes"] = to_num(cd["amount_owed_kes"]).fillna(0.0)
+            cd["days_overdue"] = to_num(cd["days_overdue"]).fillna(0).astype(int)
+            cd["payment_history_score"] = to_num(cd["payment_history_score"]).fillna(50.0)
+            self.d["FACT_COUNTY_DEBT"] = cd
+            self.log_rule("ISSUE008", "COUNTY_DEBT", "standardized and validated county debt records", len(cd))
 
     def model(self):
         self.note("Building star schema (dimensions + facts) and KPI aggregates")
@@ -561,14 +574,15 @@ class Etl:
         self.note(f"Loading to {os.path.abspath(db_path)}")
         order = ["DIM_DATE", "DIM_FACILITY", "DIM_COMMODITY", "DIM_SUPPLIER", "DIM_WAREHOUSE",
                  "FACT_INVENTORY", "FACT_CONSUMPTION", "FACT_ORDERS", "FACT_SHIPMENTS",
-                 "FACT_BATCHES", "FACT_REDISTRIBUTION",
+                 "FACT_BATCHES", "FACT_REDISTRIBUTION", "FACT_COUNTY_DEBT",
                  "AGG_FACILITY_COMMODITY_MONTH", "AGG_COMMODITY_MONTH", "AGG_FACILITY_MONTH",
                  "AGG_SUPPLIER_MONTH", "KPI_STOCKOUT", "KPI_OVERSTOCK", "KPI_EXPIRY",
                  "KPI_SUPPLIER", "KPI_REDISTRIBUTION_CHAINS", "KPI_BASELINE_VS_INTELLIGENT"]
         for name in order:
-            df = self.d[name]
-            df.to_sql(name, conn, if_exists="replace", index=False, chunksize=200000)
-            self.note(f"  {name:28s} {len(df):>10,} rows")
+            df = self.d.get(name)
+            if df is not None:
+                df.to_sql(name, conn, if_exists="replace", index=False, chunksize=200000)
+                self.note(f"  {name:28s} {len(df):>10,} rows")
 
         run_log = pd.DataFrame([{
             "run_id": 1,
@@ -586,6 +600,7 @@ class Etl:
         conn.close()
 
         small = ["DIM_DATE", "DIM_FACILITY", "DIM_COMMODITY", "DIM_SUPPLIER", "DIM_WAREHOUSE",
+                 "FACT_COUNTY_DEBT",
                  "AGG_COMMODITY_MONTH", "AGG_FACILITY_MONTH", "AGG_SUPPLIER_MONTH",
                  "KPI_STOCKOUT", "KPI_OVERSTOCK", "KPI_EXPIRY", "KPI_SUPPLIER",
                  "KPI_REDISTRIBUTION_CHAINS", "KPI_BASELINE_VS_INTELLIGENT",
@@ -612,6 +627,7 @@ class Etl:
             "CREATE INDEX IF NOT EXISTS idx_orders_sup ON FACT_ORDERS(supplier_key);",
             "CREATE INDEX IF NOT EXISTS idx_batches_fac_exp ON FACT_BATCHES(facility_key, expiry_date);",
             "CREATE INDEX IF NOT EXISTS idx_redis_status ON FACT_REDISTRIBUTION(redistribution_status);",
+            "CREATE INDEX IF NOT EXISTS idx_county_debt ON FACT_COUNTY_DEBT(county, month);",
             "CREATE INDEX IF NOT EXISTS idx_dim_fac_id ON DIM_FACILITY(facility_id);",
             "CREATE INDEX IF NOT EXISTS idx_dim_fac_county ON DIM_FACILITY(county);",
             "CREATE INDEX IF NOT EXISTS idx_dim_com_id ON DIM_COMMODITY(commodity_id);",
@@ -655,6 +671,25 @@ class Etl:
         ok = (bad == 0 and neg == 0 and fk == 0 and fk2 == 0 and over == 0 and exp_bad == 0)
         self.note(f"  ETL validation: {'PASS' if ok else 'FAIL'}")
 
+    def run_county_debt_only(self):
+        self.note(f"Extracting and loading COUNTY_DEBT into analytics.db...")
+        path = os.path.join(self.input_dir, "COUNTY_DEBT.csv")
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"{path} does not exist. Please run generate_data.py first.")
+        self.d = {"COUNTY_DEBT": read_csv(path)}
+        self._clean_county_debt()
+        db_path = os.path.join(self.output_dir, "analytics.db")
+        os.makedirs(self.output_dir, exist_ok=True)
+        conn = sqlite3.connect(db_path)
+        cd = self.d["FACT_COUNTY_DEBT"]
+        cd.to_sql("FACT_COUNTY_DEBT", conn, if_exists="replace", index=False)
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_county_debt ON FACT_COUNTY_DEBT(county, month);")
+        conn.commit()
+        conn.close()
+        cd.to_csv(os.path.join(self.output_dir, "FACT_COUNTY_DEBT.csv"), index=False)
+        self.note(f"Successfully loaded {len(cd):,} rows into FACT_COUNTY_DEBT in {db_path} and exported CSV.")
+        return self
+
     def run(self):
         self.extract().clean().model().load().validate()
         self.note("ETL complete.")
@@ -664,8 +699,13 @@ def main():
     ap = argparse.ArgumentParser(description="ETL pipeline for the healthcare supply-chain dataset")
     ap.add_argument("--input-dir", default="output", help="Source directory with raw CSVs (default: output)")
     ap.add_argument("--output-dir", default="analytics", help="Destination directory (default: analytics)")
+    ap.add_argument("--only-county-debt", action="store_true", help="Load only COUNTY_DEBT into analytics.db")
     args = ap.parse_args()
-    Etl(args.input_dir, args.output_dir).run()
+    etl = Etl(args.input_dir, args.output_dir)
+    if args.only_county_debt:
+        etl.run_county_debt_only()
+    else:
+        etl.run()
 
 
 if __name__ == "__main__":

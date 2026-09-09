@@ -32,6 +32,7 @@ output/
 output_smoke/
 output_quick/
 analytics/*.db
+!analytics/analytics.db
 analytics/*.csv
 !analytics/.gitkeep
 analytics_smoke/
@@ -39,6 +40,7 @@ analytics_smoke/
 etl_*_log*.txt
 full_run_log*.txt
 smoke_log*.txt
+scratch/
 
 # OS & Temp files
 .DS_Store
