@@ -1,8 +1,9 @@
 """Financial Risk Scorecard API Router for KEMSA Intelligence Platform."""
 
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
+import time
 import sqlite3
 
 from backend.database import get_db
@@ -12,6 +13,24 @@ router = APIRouter(
     prefix="/api/financial",
     tags=["Financial Risk Scorecard"]
 )
+
+_FINANCIAL_CACHE: Dict[str, Tuple[float, Any]] = {}
+FINANCIAL_CACHE_TTL = 300.0
+
+
+def _get_financial_cache(key: str) -> Optional[Any]:
+    entry = _FINANCIAL_CACHE.get(key)
+    if entry:
+        ts, data = entry
+        if (time.time() - ts) < FINANCIAL_CACHE_TTL:
+            return data
+        else:
+            del _FINANCIAL_CACHE[key]
+    return None
+
+
+def _set_financial_cache(key: str, data: Any):
+    _FINANCIAL_CACHE[key] = (time.time(), data)
 
 
 class RiskFactorDetail(BaseModel):
@@ -70,6 +89,11 @@ def get_national_debt_trend(
     """Returns 24-month national debt exposure trend across all counties.
     Powers Dashboard 1 (KEMSA National Leadership macro debt exposure trend chart).
     """
+    cache_key = "national_debt_trend"
+    cached = _get_financial_cache(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         cursor = db.cursor()
         cursor.execute("""
@@ -83,7 +107,7 @@ def get_national_debt_trend(
             ORDER BY month ASC
         """)
         rows = cursor.fetchall()
-        return [
+        result = [
             {
                 "month": r["month"],
                 "total_debt": round(float(r["total_debt"] or 0.0), 2),
@@ -92,6 +116,8 @@ def get_national_debt_trend(
             }
             for r in rows
         ]
+        _set_financial_cache(cache_key, result)
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -107,6 +133,11 @@ def get_all_county_scorecards(
     """Returns financial risk tier, composite score, and key metrics for all 47 counties.
     Powers the National Leadership risk map and executive cards.
     """
+    cache_key = f"scorecards_{month or 'latest'}"
+    cached = _get_financial_cache(cache_key)
+    if cached is not None:
+        return cached
+
     try:
         cursor = db.cursor()
 
@@ -150,6 +181,7 @@ def get_all_county_scorecards(
                 "month": r["month"]
             })
 
+        _set_financial_cache(cache_key, results)
         return results
     except Exception as e:
         raise HTTPException(

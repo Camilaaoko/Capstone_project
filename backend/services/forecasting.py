@@ -30,7 +30,32 @@ rather than Option B (fitting static ARIMA/Prophet models per series):
 
 from typing import Dict, Any, List, Optional, Tuple
 from datetime import datetime, date, timedelta
+import time
 import sqlite3
+
+_FORECAST_CACHE: Dict[str, Tuple[float, Any]] = {}
+CACHE_TTL_SECONDS = 300.0
+
+
+def clear_forecast_cache():
+    """Flushes forecasting in-memory cache."""
+    global _FORECAST_CACHE
+    _FORECAST_CACHE.clear()
+
+
+def _get_from_cache(key: str) -> Optional[Any]:
+    entry = _FORECAST_CACHE.get(key)
+    if entry:
+        ts, data = entry
+        if (time.time() - ts) < CACHE_TTL_SECONDS:
+            return data
+        else:
+            del _FORECAST_CACHE[key]
+    return None
+
+
+def _set_in_cache(key: str, data: Any):
+    _FORECAST_CACHE[key] = (time.time(), data)
 
 
 def project_pair_stockout(
@@ -244,6 +269,11 @@ def get_county_stockout_forecast(db: sqlite3.Connection, county: str) -> Dict[st
     """Computes aggregated stockout forecasts across all facilities within a county.
     Powers Dashboard 2 (County Health Department / Pharmacist alert feed).
     """
+    cache_key = f"county_{county.strip().lower()}"
+    cached = _get_from_cache(cache_key)
+    if cached is not None:
+        return cached
+
     cursor = db.cursor()
 
     # Query all facilities in this county
@@ -328,7 +358,7 @@ def get_county_stockout_forecast(db: sqlite3.Connection, county: str) -> Dict[st
     # Sort critical alerts by immediacy
     critical_alerts.sort(key=lambda a: a["days_until_stockout"])
 
-    return {
+    result = {
         "county": county.title(),
         "inventory_date": inv_date_str,
         "facilities_monitored": len(facilities),
@@ -337,6 +367,8 @@ def get_county_stockout_forecast(db: sqlite3.Connection, county: str) -> Dict[st
         "critical_alerts": critical_alerts[:25],  # Top 25 most urgent alerts for feed
         "facilities": facility_summaries,
     }
+    _set_in_cache(cache_key, result)
+    return result
 
 
 def get_national_stockout_forecast(db: sqlite3.Connection, top_n: int = 10) -> Dict[str, Any]:
@@ -344,6 +376,11 @@ def get_national_stockout_forecast(db: sqlite3.Connection, top_n: int = 10) -> D
     Powers Dashboard 1 (KEMSA National Leadership).
     Per specification: Strictly maintains aggregate form without dumping exhaustive facility rows.
     """
+    cache_key = f"national_{top_n}"
+    cached = _get_from_cache(cache_key)
+    if cached is not None:
+        return cached
+
     cursor = db.cursor()
 
     # Query latest date
@@ -461,7 +498,7 @@ def get_national_stockout_forecast(db: sqlite3.Connection, top_n: int = 10) -> D
         },
     ]
 
-    return {
+    result = {
         "inventory_date": inv_date_str,
         "total_facilities_monitored": len(facilities_set),
         "total_counties_monitored": len(counties_set),
@@ -471,12 +508,19 @@ def get_national_stockout_forecast(db: sqlite3.Connection, top_n: int = 10) -> D
         "horizon_projections": horizon_projections,
         "most_urgent_pairs": urgent_pairs[:top_n],
     }
+    _set_in_cache(cache_key, result)
+    return result
 
 
 def get_category_stockout_forecast(db: sqlite3.Connection) -> Dict[str, Any]:
     """Aggregates 30-day predicted stockout deficit by commodity category (therapeutic program).
     Powers the National Dashboard therapeutic program deficit breakdown.
     """
+    cache_key = "category_national"
+    cached = _get_from_cache(cache_key)
+    if cached is not None:
+        return cached
+
     cursor = db.cursor()
 
     cursor.execute("SELECT MAX(date_key) as max_date_key FROM FACT_INVENTORY")
@@ -586,11 +630,13 @@ def get_category_stockout_forecast(db: sqlite3.Connection) -> Dict[str, Any]:
 
     categories_list.sort(key=lambda x: x["estimated_deficit_value_kes"], reverse=True)
 
-    return {
+    result = {
         "inventory_date": inv_date_str,
         "total_critical_pairs": total_critical_pairs,
         "total_unmet_demand_units": round(total_unmet_demand_units, 1),
         "total_deficit_value_kes": round(total_deficit_value_kes, 2),
         "categories": categories_list,
     }
+    _set_in_cache(cache_key, result)
+    return result
 

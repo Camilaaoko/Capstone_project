@@ -367,9 +367,10 @@ export async function getHealthCheck(): Promise<HealthCheckResponse> {
   return fetchJson<HealthCheckResponse>('/');
 }
 
-/** Fetch all registered facilities */
-export async function getFacilities(): Promise<FacilitySummary[]> {
-  return fetchJson<FacilitySummary[]>('/api/facilities');
+/** Fetch registered health facilities (optionally filtered by county) */
+export async function getFacilities(county?: string): Promise<FacilitySummary[]> {
+  const query = county ? `?county=${encodeURIComponent(county)}` : '';
+  return fetchJson<FacilitySummary[]>(`/api/facilities${query}`);
 }
 
 // --- Financial Scorecard ---

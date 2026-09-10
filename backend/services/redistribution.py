@@ -431,6 +431,69 @@ def update_request_status(
     return dict(updated)
 
 
+_cached_historical_baseline: Optional[Dict[str, Any]] = None
+_cached_top_reallocated: Optional[List[Dict[str, Any]]] = None
+
+
+def _get_cached_historical_redistribution(db: sqlite3.Connection):
+    """Computes static historical metrics from 85k-row FACT_REDISTRIBUTION once and caches in-memory."""
+    global _cached_historical_baseline, _cached_top_reallocated
+    if _cached_historical_baseline is not None and _cached_top_reallocated is not None:
+        return _cached_historical_baseline, _cached_top_reallocated
+
+    cursor = db.cursor()
+    cursor.execute("""
+        SELECT 
+            COUNT(*) as total_transfers,
+            COALESCE(SUM(fr.recommended_quantity), 0.0) as total_units,
+            COALESCE(SUM(fr.recommended_quantity * com.unit_cost), 0.0) as total_value_kes
+        FROM FACT_REDISTRIBUTION fr
+        JOIN DIM_COMMODITY com ON com.commodity_id = fr.commodity_id
+        WHERE fr.redistribution_status = 'RECOMMENDED'
+    """)
+    hist_row = cursor.fetchone()
+    historical_transfers = int(hist_row["total_transfers"] or 0)
+    historical_units = round(float(hist_row["total_units"] or 0.0), 1)
+    historical_value_kes = round(float(hist_row["total_value_kes"] or 0.0), 2)
+
+    _cached_historical_baseline = {
+        "total_transfers": historical_transfers,
+        "total_units": historical_units,
+        "total_value_kes": historical_value_kes,
+    }
+
+    cursor.execute("""
+        SELECT 
+            c.commodity_id,
+            c.commodity_name,
+            c.category,
+            c.unit_cost,
+            COUNT(*) as transfer_count,
+            SUM(fr.recommended_quantity) as total_units,
+            SUM(fr.recommended_quantity * c.unit_cost) as total_value_kes
+        FROM FACT_REDISTRIBUTION fr
+        JOIN DIM_COMMODITY c ON fr.commodity_id = c.commodity_id
+        WHERE fr.redistribution_status = 'RECOMMENDED'
+        GROUP BY c.commodity_id, c.commodity_name, c.category, c.unit_cost
+        ORDER BY total_units DESC
+        LIMIT 5
+    """)
+    top_rows = cursor.fetchall()
+    _cached_top_reallocated = [
+        {
+            "commodity_id": r["commodity_id"],
+            "commodity_name": r["commodity_name"],
+            "category": (r["category"] or "").title(),
+            "transfer_count": int(r["transfer_count"]),
+            "total_units": round(float(r["total_units"] or 0.0), 1),
+            "total_value_kes": round(float(r["total_value_kes"] or 0.0), 2),
+        }
+        for r in top_rows
+    ]
+
+    return _cached_historical_baseline, _cached_top_reallocated
+
+
 def get_redistribution_activity_summary(db: sqlite3.Connection) -> Dict[str, Any]:
     """Aggregates transfer request status counts, transferred quantities, and prevented wastage.
     Combines simulated 24-month network baseline (FACT_REDISTRIBUTION) with live interactive requests (transfer_requests).
@@ -479,26 +542,11 @@ def get_redistribution_activity_summary(db: sqlite3.Connection) -> Dict[str, Any
         "estimated_wastage_prevented_kes": live_value_kes,
     }
 
-    # 2. Historical baseline from FACT_REDISTRIBUTION (status = 'RECOMMENDED')
-    cursor.execute("""
-        SELECT 
-            COUNT(*) as total_transfers,
-            COALESCE(SUM(fr.recommended_quantity), 0.0) as total_units,
-            COALESCE(SUM(fr.recommended_quantity * com.unit_cost), 0.0) as total_value_kes
-        FROM FACT_REDISTRIBUTION fr
-        JOIN DIM_COMMODITY com ON com.commodity_id = fr.commodity_id
-        WHERE fr.redistribution_status = 'RECOMMENDED'
-    """)
-    hist_row = cursor.fetchone()
-    historical_transfers = int(hist_row["total_transfers"] or 0)
-    historical_units = round(float(hist_row["total_units"] or 0.0), 1)
-    historical_value_kes = round(float(hist_row["total_value_kes"] or 0.0), 2)
-
-    historical_baseline = {
-        "total_transfers": historical_transfers,
-        "total_units": historical_units,
-        "total_value_kes": historical_value_kes,
-    }
+    # 2. Historical baseline from FACT_REDISTRIBUTION (status = 'RECOMMENDED', cached in-memory)
+    historical_baseline, top_reallocated_commodities = _get_cached_historical_redistribution(db)
+    historical_transfers = historical_baseline["total_transfers"]
+    historical_units = historical_baseline["total_units"]
+    historical_value_kes = historical_baseline["total_value_kes"]
 
     # 3. Combined total headline metrics
     combined_total_transfers = historical_transfers + live_approved_count
@@ -527,36 +575,6 @@ def get_redistribution_activity_summary(db: sqlite3.Connection) -> Dict[str, Any
         LIMIT 15
     """)
     recent = [dict(row) for row in cursor.fetchall()]
-
-    # 4. Top reallocated commodities across the network (Top 5 by volume)
-    cursor.execute("""
-        SELECT 
-            c.commodity_id,
-            c.commodity_name,
-            c.category,
-            c.unit_cost,
-            COUNT(*) as transfer_count,
-            SUM(fr.recommended_quantity) as total_units,
-            SUM(fr.recommended_quantity * c.unit_cost) as total_value_kes
-        FROM FACT_REDISTRIBUTION fr
-        JOIN DIM_COMMODITY c ON fr.commodity_id = c.commodity_id
-        WHERE fr.redistribution_status = 'RECOMMENDED'
-        GROUP BY c.commodity_id, c.commodity_name, c.category, c.unit_cost
-        ORDER BY total_units DESC
-        LIMIT 5
-    """)
-    top_rows = cursor.fetchall()
-    top_reallocated_commodities = [
-        {
-            "commodity_id": r["commodity_id"],
-            "commodity_name": r["commodity_name"],
-            "category": (r["category"] or "").title(),
-            "transfer_count": int(r["transfer_count"]),
-            "total_units": round(float(r["total_units"] or 0.0), 1),
-            "total_value_kes": round(float(r["total_value_kes"] or 0.0), 2),
-        }
-        for r in top_rows
-    ]
 
     return {
         "status_counts": status_counts,

@@ -92,21 +92,17 @@ function CountyDashboardContent() {
     try {
       setLoading(true);
       setError(null);
-      const [scorecardData, historyData, forecastData, transfersData, allFacilities] = await Promise.all([
+      const [scorecardData, historyData, forecastData, transfersData, countyFacilities] = await Promise.all([
         getCountyScorecard(county),
         getCountyScorecardHistory(county),
         getCountyForecast(county),
         getPendingTransfers(county),
-        getFacilities(),
+        getFacilities(county),
       ]);
       setScorecard(scorecardData);
       setScorecardHistory(historyData);
       setForecast(forecastData);
       setPendingTransfers(transfersData.requests || []);
-      // Filter facilities strictly to this county
-      const countyFacilities = allFacilities.filter(
-        (f) => f.county.toLowerCase() === county.toLowerCase()
-      );
       setFacilities(countyFacilities);
     } catch (err: unknown) {
       console.error('Error fetching county data:', err);
