@@ -25,4 +25,4 @@ services:
         fromService:
           type: web
           name: kemsa-backend
-          property: host
+          envVarKey: RENDER_EXTERNAL_URL
