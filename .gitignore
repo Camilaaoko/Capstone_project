@@ -21,6 +21,8 @@ htmlcov/
 *.db
 *.sqlite
 *.sqlite3
+*.db-wal
+*.db-shm
 
 # Machine Learning Models
 *.pkl

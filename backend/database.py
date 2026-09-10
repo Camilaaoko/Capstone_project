@@ -23,8 +23,17 @@ def get_db_path() -> Path:
     return DB_PATH
 
 
+_tables_initialized = False
+
+
 def init_db_tables(conn: sqlite3.Connection):
-    """Ensures transactional workflow tables like transfer_requests exist in analytics.db."""
+    """Ensures transactional workflow tables like transfer_requests exist in analytics.db.
+    Executed once per process lifetime to avoid DDL locking overhead on request paths.
+    """
+    global _tables_initialized
+    if _tables_initialized:
+        return
+
     conn.execute("""
         CREATE TABLE IF NOT EXISTS transfer_requests (
             request_id TEXT PRIMARY KEY,
@@ -46,13 +55,24 @@ def init_db_tables(conn: sqlite3.Connection):
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tr_dest ON transfer_requests(destination_facility_id);")
     conn.execute("CREATE INDEX IF NOT EXISTS idx_tr_src ON transfer_requests(source_facility_id);")
     conn.commit()
+    _tables_initialized = True
 
 
 def get_db_connection() -> sqlite3.Connection:
-    """Creates and returns a SQLite connection with Row factory enabled."""
+    """Creates and returns a SQLite connection with Row factory and high-performance PRAGMAs enabled."""
     conn = sqlite3.connect(str(get_db_path()), check_same_thread=False)
     conn.row_factory = sqlite3.Row
-    init_db_tables(conn)
+
+    # Performance optimizations: WAL mode, memory mapping, and in-memory temporary store
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA synchronous = NORMAL;")
+    conn.execute("PRAGMA mmap_size = 268435456;")  # 256MB memory mapping
+    conn.execute("PRAGMA cache_size = -32000;")    # 32MB page cache
+    conn.execute("PRAGMA temp_store = MEMORY;")
+
+    if not _tables_initialized:
+        init_db_tables(conn)
+
     return conn
 
 
