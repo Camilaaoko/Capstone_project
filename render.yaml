@@ -12,7 +12,7 @@ services:
 
   # 2. Next.js Frontend Web Service
   - type: web
-    name: kemsa-frontend
+    name: kemsa-supply-chain-intelligence
     runtime: node
     rootDir: frontend
     buildCommand: npm install && npm run build
