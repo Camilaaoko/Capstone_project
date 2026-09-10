@@ -3,7 +3,20 @@
  * Connects to the FastAPI backend service.
  */
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+function getBaseUrl(): string {
+  const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (!envUrl) {
+    return 'http://localhost:8000';
+  }
+  // If the URL already has a protocol scheme, use it and strip trailing slash
+  if (envUrl.startsWith('http://') || envUrl.startsWith('https://')) {
+    return envUrl.replace(/\/+$/, '');
+  }
+  // If a bare hostname was provided (e.g. kemsa-backend.onrender.com), prepend https://
+  return `https://${envUrl}`.replace(/\/+$/, '');
+}
+
+const API_BASE_URL = getBaseUrl();
 
 async function fetchJson<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`;
